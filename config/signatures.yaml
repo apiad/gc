@@ -1,0 +1,14 @@
+signatures:
+  - name: "Python Bytecode"
+    pattern: "**/__pycache__"
+    priority: 1.0
+  - name: "Node Dependencies"
+    pattern: "**/node_modules"
+    priority: 0.8
+    min_age_days: 30
+  - name: "MacOS Metadata"
+    pattern: "**/.DS_Store"
+    priority: 1.0
+  - name: "Build Artifacts"
+    pattern: "**/build"
+    priority: 0.5

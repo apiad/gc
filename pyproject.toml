@@ -1,0 +1,53 @@
+[project]
+name = "fsgc"
+version = "0.1.0"
+description = "A Python-based CLI utility that performs high-performance filesystem scanning to identify space-intensive directories and applies a heuristic scoring model to suggest 'Garbage Collection' (deletion) of transient or stale data."
+readme = "README.md"
+authors = [
+    { name = "Alejandro Piad", email = "apiad@apiad.net" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "pyyaml>=6.0.3",
+    "rich>=14.3.3",
+    "sqlitedict>=2.1.0",
+    "typer>=0.24.1",
+]
+
+[project.scripts]
+gc = "fsgc.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.15.6",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = [".gemini"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "ANN", "S", "PT", "ARG"]
+ignore = ["ANN101", "ANN102", "ANN401"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "ANN"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+exclude = [".gemini"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "--cov=fsgc --cov-report=term-missing"

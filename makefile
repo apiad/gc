@@ -1,12 +1,17 @@
-.PHONY: all test lint format docs-serve docs-build
+.PHONY: all test lint format check
 
-all: test lint
+all: lint test check
 
 test:
-	@echo "Running tests..."
+	@uv run pytest
 
-docs-serve:
-	@mkdocs serve
+lint:
+	@uv run ruff check .
+	@uv run ruff format --check .
 
-docs-build:
-	@mkdocs build
+format:
+	@uv run ruff check --fix .
+	@uv run ruff format .
+
+check:
+	@uv run mypy src/ tests/
