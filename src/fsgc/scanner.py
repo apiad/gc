@@ -15,10 +15,11 @@ class ScanState(Enum):
     The scanning state of a directory node.
     """
 
-    UNSCANNED = auto()  # Not yet touched by any scout or crawler
+    UNVERIFIED = auto()  # Not yet scanned or currently unverified
+    EXPLORING = auto()  # Currently being descended in an MCTS iteration
     GHOST = auto()  # Initialized from trail data, but not yet verified on disk
     STALE = auto()  # Verified to exist, but mtime or structure has changed since trail
-    VERIFIED = auto()  # Verified on disk and matches trail (or freshly scanned)
+    VERIFIED = auto()  # Verified on disk AND entire subtree is fully explored
 
 
 @dataclass(order=True)
@@ -43,7 +44,7 @@ class DirectoryNode:
     files_size: int = 0  # Sum of file sizes in this directory only
     atime: float = 0.0  # Most recent access time in this branch
     mtime: float = 0.0  # Most recent modification time in this branch
-    state: ScanState = ScanState.UNSCANNED
+    state: ScanState = ScanState.UNVERIFIED
     big_fish: list[BigFish] = field(default_factory=list)
     children: dict[str, "DirectoryNode"] = field(default_factory=dict)
     is_dir: bool = True
