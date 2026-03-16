@@ -16,10 +16,15 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
+- [ ] Refine garbage collection signatures for OS, applications, and build systems. (See research/garbage-collection-signatures/)
+
 ---
 
 ## Archive
 
+- [x] Implement "Incremental Refinement" scanning animation. (2026-03-16) (See plan: plans/incremental-scan.md)
+- [x] Implement stochastic search engine and .gctrail caching. (2026-03-16) (See plan: plans/implement-stochastic-scanner.md)
+- [x] Implement Mark Phase (heuristic scoring) and interactive deletion. (2026-03-15) (See plan: plans/implement-mark-phase.md)
 - [x] Implement directory scanning and tree-like summary functionality. (2026-03-15) (See plan: plans/implement-scanning-summary.md)
 - [x] Update `install.sh` to be served via GitHub Pages and update all references to use the new URL. (2026-03-11)
 - [x] Create comprehensive User Guide (`docs/user-guide.md`) based on "The Architect in the Machine" philosophy. (2026-03-11) (See plan: plans/user-guide-integration.md)
