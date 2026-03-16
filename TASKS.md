@@ -16,7 +16,7 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
-- [ ] Implement Canonical MCTS search strategy. (See plan: plans/implement-canonical-mcts.md)
+- [/] Implement Canonical MCTS (@apiad) search strategy. (See plan: plans/implement-canonical-mcts.md)
 - [ ] Refine garbage collection signatures for OS, applications, and build systems. (See research/garbage-collection-signatures/)
 
 ---
