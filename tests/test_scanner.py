@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from fsgc.scanner import DirectoryNode, PrioritizedPath, Scanner
+from fsgc.scanner import DirectoryNode, Scanner
 
 
 def test_scanner_initialization(tmp_path: Path) -> None:
@@ -39,7 +39,7 @@ def test_scanner_builds_tree_with_metadata(tmp_path: Path) -> None:
 
     async def get_root():
         root = None
-        async for snapshot in scanner.scan():
+        async for snapshot in scanner.scan(signatures=[]):
             root = snapshot
         return root
 
@@ -56,54 +56,3 @@ def test_scanner_builds_tree_with_metadata(tmp_path: Path) -> None:
 
     dir1_node = root_node.children["dir1"]
     assert dir1_node.atime >= new_time - 1
-
-
-@pytest.mark.asyncio
-async def test_scout_routine(tmp_path: Path) -> None:
-    """
-    Verify that the scout routine correctly discovers subdirectories and loads trails.
-    """
-    from fsgc.scanner import ScanState
-    from fsgc.trail import GCTrail
-
-    # 1. Create structure
-    # tmp_path/
-    #   .cache/ (High priority)
-    #     file1 (10MB)
-    #   .gctrail (in root)
-    cache_dir = tmp_path / ".cache"
-    cache_dir.mkdir()
-    (cache_dir / "file1").write_bytes(b"x" * 1024)
-
-    # 2. Create a mock trail in root
-    trail = GCTrail(
-        timestamp=time.time(),
-        structural_hash=123,
-        total_size=5000,
-        reconstructible_size=1000,
-        noise_size=500,
-        big_fish=[],
-    )
-    (tmp_path / ".gctrail").write_bytes(trail.to_bytes())
-
-    scanner = Scanner(tmp_path)
-    # Seed the GPQ manually for the test
-    root_node = DirectoryNode(path=tmp_path)
-    scanner.tree = root_node
-    scanner.path_to_node[tmp_path] = root_node
-    scanner.visited.add(os.path.realpath(tmp_path))
-    await scanner.gpq.put(PrioritizedPath(priority=0, path=tmp_path))
-
-    # Run worker for one task
-    # We create a task and wait for the gpq to be processed
-    worker_task = asyncio.create_task(scanner._worker())
-    await scanner.gpq.join()
-    worker_task.cancel()
-    await asyncio.gather(worker_task, return_exceptions=True)
-
-    # Verify results
-    assert root_node.state == ScanState.STALE  # Hash mismatch triggers STALE
-    assert root_node.cached_size == 5000  # Loaded from trail
-    assert root_node.is_processed is True
-    assert ".cache" in root_node.children
-    assert root_node.children[".cache"].state == ScanState.VERIFIED

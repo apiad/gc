@@ -30,10 +30,12 @@ def render_summary_tree(summary: dict[str, Any], total_size: int = 0) -> Tree:
     """
     Convert the summary dictionary into a Rich Tree.
     """
+    # Use estimated size for total tree percentage
     if total_size == 0:
-        total_size = summary["size"]
+        total_size = summary.get("estimated_size", summary["size"])
 
-    percentage = (summary["size"] / total_size * 100) if total_size > 0 else 0
+    node_size = summary.get("estimated_size", summary["size"])
+    percentage = (node_size / total_size * 100) if total_size > 0 else 0
 
     label = Text()
 
@@ -45,6 +47,8 @@ def render_summary_tree(summary: dict[str, Any], total_size: int = 0) -> Tree:
         name_style = "dim blue"
     elif state == "STALE":
         name_style = "dim blue"
+    elif state == "EXPLORING":
+        name_style = "bold yellow"
 
     if summary.get("is_others"):
         label.append("...", style="bold yellow")
@@ -58,14 +62,26 @@ def render_summary_tree(summary: dict[str, Any], total_size: int = 0) -> Tree:
             label.append(" 💾", style="dim")
             label.append(" ")
             label.append(render_sparkline(completion_ratio))
+        elif state == "EXPLORING":
+            label.append(" 🔍", style="bold yellow")
+        elif state == "VERIFIED":
+            label.append(" ✅", style="green")
         else:
-            label.append(" ✅", style="dim")
+            label.append(" ❓", style="dim")
 
     label.append(" - ", style="dim")
 
-    # Dim the size if it's not fully verified
-    size_style = "green" if state == "VERIFIED" else "dim green"
-    label.append(format_size(summary["size"]), style=size_style)
+    # Show Confirmed vs Estimated if different
+    confirmed = summary.get("confirmed_size", summary["size"])
+    estimated = summary.get("estimated_size", summary["size"])
+
+    if state != "VERIFIED" and confirmed < estimated:
+        label.append(format_size(confirmed), style="green")
+        label.append("/", style="dim")
+        label.append(format_size(estimated), style="dim green")
+    else:
+        label.append(format_size(confirmed), style="green")
+
     label.append(f" ({percentage:.1f}%)", style="magenta")
 
     tree = Tree(label)

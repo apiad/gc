@@ -1,9 +1,14 @@
 import asyncio
 import logging
+import math
 import os
+import random
+import time
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
+from typing import Any
 
 from fsgc.trail import BigFish, GCTrail
 
@@ -58,6 +63,7 @@ class DirectoryNode:
     # MCTS metrics
     visits: int = 0
     total_reward: float = 0.0
+    total_time: float = 0.0
     confirmed_size: int = 0
     estimated_size: int = 0
     is_fully_explored: bool = False
@@ -94,14 +100,14 @@ class Scanner:
         "obj": 30,
     }
 
-    def __init__(self, root: Path, stay_on_mount: bool = True) -> None:
+    def __init__(self, root: Path, stay_on_mount: bool = True, engine: "Any" = None) -> None:
         self.root = root.resolve()
         self.stay_on_mount = stay_on_mount
         self.root_dev = self._get_dev(self.root)
         self.tree: DirectoryNode | None = None
-        self.gpq: asyncio.PriorityQueue[PrioritizedPath] = asyncio.PriorityQueue()
         self.visited: set[str] = set()
         self.path_to_node: dict[Path, DirectoryNode] = {}
+        self.engine = engine
 
     def _get_dev(self, path: Path) -> int:
         try:
@@ -109,114 +115,199 @@ class Scanner:
         except (PermissionError, FileNotFoundError):
             return -1
 
-    def _get_priority(self, path: Path) -> int:
+    def select_node(self, node: DirectoryNode) -> DirectoryNode | None:
         """
-        Calculate the priority score for a given path.
+        Select the best child node using a PUCT-like formula.
+        1. Prioritize nodes with 0 visits.
+        2. Score = (R/T) + C * P * sqrt(N_parent) / (1 + N)
         """
-        score = 100
-        if path.name in self.STATIC_PRIORS:
-            score = self.STATIC_PRIORS[path.name]
+        if not node.children:
+            return None
 
-        try:
-            depth = len(path.relative_to(self.root).parts)
-            score += depth
-        except ValueError:
-            pass
-        return score
+        # Filter out fully explored children
+        available_children = [c for c in node.children.values() if not c.is_fully_explored]
+        if not available_children:
+            node.is_fully_explored = True
+            return None
 
-    async def scan(self, num_workers: int = 4) -> "asyncio.AsyncGenerator[DirectoryNode, None]":
+        # 1. Prioritize unvisited nodes
+        for child in available_children:
+            if child.visits == 0:
+                return child
+
+        best_score = -float("inf")
+        best_child = None
+
+        # Hyperparameter C (exploration constant)
+        c = 1.414
+
+        for child in available_children:
+            # Exploitation: Efficiency (Reward / Time)
+            # Add small epsilon to time to avoid division by zero
+            exploitation = child.total_reward / (child.total_time + 1e-6)
+
+            # Prior P: Combined estimated size and heuristic score
+            # Normalize estimated_size (could be huge, so maybe log it or use relative to parent)
+            p = (child.heuristic_score + 0.1) * (math.log10(max(1, child.estimated_size)) + 1)
+
+            # Exploration: UCT term
+            exploration = c * p * math.sqrt(node.visits) / (1 + child.visits)
+
+            score = exploitation + exploration
+
+            if score > best_score:
+                best_score = score
+                best_child = child
+
+        return best_child or list(node.children.values())[0]
+
+    async def mcts_iteration(self, root: DirectoryNode, signatures: list[Any]) -> None:
         """
-        Perform a stochastic scan of the filesystem and yield tree snapshots.
+        Perform one MCTS iteration: a complete playout from root to leaf.
+        """
+        start_time = time.time()
+        path = [root]
+        current = root
+
+        # Save original states to revert after exploration
+        original_states = {root: root.state}
+
+        while True:
+            # 1. Verification (Expansion if needed)
+            if not current.is_processed:
+                await self._process_directory(current)
+                # After processing, load heuristics and priors
+                if self.engine:
+                    sig = self.engine.get_matching_signature_by_path(current.path, signatures)
+                    score = self.engine.calculate_score(current, sig) if sig else 0.1
+                    current.heuristic_score = score
+                else:
+                    current.heuristic_score = 0.1
+            
+            # Mark as exploring
+            if current.state != ScanState.VERIFIED:
+                current.state = ScanState.EXPLORING
+
+            # 2. Termination Check
+            if not current.children or current.is_fully_explored:
+                break
+
+            # 3. Selection (Move deeper)
+            next_node = self.select_node(current)
+            if next_node is None or next_node == current:
+                break
+
+            current = next_node
+            path.append(current)
+            original_states[current] = current.state
+
+        # 4. Reward Calculation (Simulation)
+        reward = await self._calculate_path_reward(path)
+        iteration_time = time.time() - start_time
+
+        # 5. Backpropagation
+        for node in path:
+            node.visits += 1
+            node.total_reward += reward
+            node.total_time += iteration_time
+            
+            # Revert from EXPLORING to original or STALE if not yet VERIFIED
+            if node.state == ScanState.EXPLORING:
+                orig = original_states.get(node, ScanState.UNVERIFIED)
+                node.state = orig if orig != ScanState.EXPLORING else ScanState.UNVERIFIED
+
+    async def _calculate_path_reward(self, path: list[DirectoryNode]) -> float:
+        """
+        Calculate total reward for the given path.
+        """
+        # Reward is the sum of (files_size * heuristic_score) for all nodes in the path
+        # which have been verified.
+        total_reward = 0.0
+        for node in path:
+            if node.is_processed:
+                total_reward += node.files_size * node.heuristic_score
+        return total_reward
+
+    async def _simulate(self, node: DirectoryNode, signatures: list[Any]) -> float:
+        """
+        Simulate a random playout from the current node to a leaf.
+        Reward is the 'Verified Deletable Size'.
+        """
+        # If already verified, reward is based on known size and score
+        if node.is_processed:
+            reward = node.files_size * node.heuristic_score
+            # Recurse with some probability or until leaf?
+            # Simplified: just return current node reward for now or one random child
+            if node.children:
+                child = random.choice(list(node.children.values()))  # noqa: S311
+                reward += await self._simulate(child, signatures)
+            return reward
+
+        return 0.0
+
+    async def scan(
+        self, signatures: list[Any], num_iterations: int = 1000000
+    ) -> AsyncGenerator[DirectoryNode, None]:
+        """
+        Perform an informed MCTS scan of the filesystem and yield tree snapshots.
         """
         root_node = DirectoryNode(path=self.root)
         self.tree = root_node
         self.path_to_node[self.root] = root_node
         self.visited.add(os.path.realpath(self.root))
 
-        await self.gpq.put(PrioritizedPath(priority=0, path=self.root))
+        # Initial expansion of root
+        await self._process_directory(root_node)
 
-        # Launch concurrent async workers
-        workers = [asyncio.create_task(self._worker()) for _ in range(num_workers)]
+        iteration = 0
+        while not root_node.is_fully_explored and iteration < num_iterations:
+            await self.mcts_iteration(root_node, signatures)
 
-        # Background task to wait for the queue to be fully processed
-        join_task = asyncio.create_task(self.gpq.join())
-
-        try:
-            while not join_task.done():
+            # Yield snapshot frequently
+            if iteration % 10 == 0:
                 self.calculate_metadata(root_node)
                 yield root_node
-                # Wait a bit before next snapshot to avoid UI flickering
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.001)
 
-            await join_task
-        finally:
-            # Stop workers
-            for w in workers:
-                w.cancel()
-            await asyncio.gather(*workers, return_exceptions=True)
+            iteration += 1
 
-        # Final metadata aggregation (bottom-up)
         self.calculate_metadata(root_node)
         yield root_node
 
-    async def _worker(self) -> None:
-        """
-        Async worker routine: pulls from GPQ and processes directories.
-        """
-        try:
-            while True:
-                prioritized = await self.gpq.get()
-                current_path = prioritized.path
-                current_node = self.path_to_node.get(current_path)
-
-                if not current_node:
-                    self.gpq.task_done()
-                    continue
-
-                # 1. Trail Logic
-                trail_path = current_path / ".gctrail"
-                if await asyncio.to_thread(trail_path.exists):
-                    try:
-                        data = await asyncio.to_thread(trail_path.read_bytes)
-                        trail = GCTrail.from_bytes(data)
-                        current_node.cached_size = trail.total_size
-                        current_node.cached_hash = trail.structural_hash
-                        current_node.state = ScanState.GHOST
-                        current_node.big_fish = trail.big_fish
-                    except Exception as e:
-                        logger.debug(f"Failed to load trail at {trail_path}: {e}")
-
-                # 2. Directory Exploration
-                await self._process_directory(current_node)
-
-                self.gpq.task_done()
-        except asyncio.CancelledError:
-            pass
-
     async def _process_directory(self, node: DirectoryNode) -> None:
         """
-        Scan a single directory level, update node metadata, and seed GPQ.
+        Scan a single directory level and update node metadata.
         """
         try:
-            # listdir/scandir is blocking, run in thread
+            # 1. Trail Logic (Fast-path if hash matches)
+            trail_path = node.path / ".gctrail"
+            if await asyncio.to_thread(trail_path.exists):
+                try:
+                    data = await asyncio.to_thread(trail_path.read_bytes)
+                    trail = GCTrail.from_bytes(data)
+                    node.cached_size = trail.total_size
+                    node.cached_hash = trail.structural_hash
+                    node.big_fish = trail.big_fish
+                    node.estimated_size = trail.total_size
+                    # Check for quick verification
+                    dir_stat = await asyncio.to_thread(os.stat, node.path)
+                    entries_count = len(os.listdir(node.path))
+                    current_hash = GCTrail.calculate_structural_hash(
+                        dir_stat.st_mtime, entries_count
+                    )
+                    if current_hash == node.cached_hash:
+                        # Even if hash matches, we don't set is_fully_explored here
+                        # to ensure the MCTS actually visits subdirectories.
+                        node.state = ScanState.VERIFIED
+                        node.size = trail.total_size
+                    else:
+                        node.state = ScanState.STALE
+                except Exception as e:
+                    logger.debug(f"Failed to load trail at {trail_path}: {e}")
+
+            # 2. Directory Exploration
             entries = await asyncio.to_thread(self._get_entries, node.path)
-
-            dir_stat = await asyncio.to_thread(os.stat, node.path)
-            dir_mtime = dir_stat.st_mtime
             node.entry_count = len(entries)
-            current_hash = GCTrail.calculate_structural_hash(dir_mtime, node.entry_count)
-
-            # Fast-path verification
-            if node.state == ScanState.GHOST:
-                if current_hash == node.cached_hash:
-                    node.state = ScanState.VERIFIED
-                    node.size = node.cached_size
-                    node.mtime = dir_mtime
-                    node.is_processed = True
-                    node.completion_ratio = 1.0
-                    return  # Skip deep crawling
-                else:
-                    node.state = ScanState.STALE
 
             for entry_name, entry_path, is_dir, stat in entries:
                 if self.stay_on_mount and self._get_dev(entry_path) != self.root_dev:
@@ -229,28 +320,19 @@ class Scanner:
                         child_node = DirectoryNode(path=entry_path)
                         node.add_child(entry_name, child_node)
                         self.path_to_node[entry_path] = child_node
-
-                        # Push to GPQ
-                        priority = self._get_priority(entry_path)
-                        await self.gpq.put(PrioritizedPath(priority=priority, path=entry_path))
                 else:
                     if stat:
                         node.files_size += stat.st_size
                         node.atime = max(node.atime, stat.st_atime)
                         node.mtime = max(node.mtime, stat.st_mtime)
 
-                        # Collect Big Fish (>10MB)
                         if stat.st_size > 10 * 1024 * 1024:
                             node.big_fish.append(BigFish(filename=entry_name, size=stat.st_size))
 
-            # Sort and limit big fish
             node.big_fish.sort(key=lambda x: x.size, reverse=True)
             node.big_fish = node.big_fish[:10]
 
-            # Update state
-            if node.state != ScanState.STALE:
-                node.state = ScanState.VERIFIED
-
+            node.state = ScanState.VERIFIED
             node.is_processed = True
 
         except (PermissionError, FileNotFoundError) as e:
@@ -279,44 +361,57 @@ class Scanner:
         Recursively calculate total size, most recent timestamps, and completion progress.
         Returns (size, atime, mtime, is_complete, completion_ratio).
         """
-        if node.state == ScanState.VERIFIED and not node.children and node.cached_size > 0:
-            # Fast-path verification (no children loaded, trust cache)
-            node.size = max(node.size, node.cached_size)
-            node.completion_ratio = 1.0
-            return node.size, node.atime, node.mtime, True, 1.0
-
-        total_size = node.files_size
+        # Confirmed size is files in this dir + confirmed sizes of children
+        confirmed_size = node.files_size
+        
+        # Estimated size starts with confirmed size, then adds estimates for unexplored branches
+        estimated_size = node.files_size
+        
         max_atime = node.atime
         max_mtime = node.mtime
-        all_children_complete = node.is_processed
+        
+        # A node is fully explored ONLY if it is processed AND all its children are fully explored
+        all_children_fully_explored = node.is_processed
 
         total_ratio = 1.0 if node.is_processed else 0.0
 
         for child in node.children.values():
             c_size, c_atime, c_mtime, c_complete, c_ratio = self.calculate_metadata(child)
-            total_size += c_size
+            
+            # If child is fully explored, its size is confirmed
+            if c_complete:
+                confirmed_size += c_size
+                estimated_size += c_size
+            else:
+                # If not complete, use its estimated size for our estimate
+                estimated_size += child.estimated_size
+                # And its confirmed size for our confirmed
+                confirmed_size += child.confirmed_size
+
             max_atime = max(max_atime, c_atime)
             max_mtime = max(max_mtime, c_mtime)
-            all_children_complete = all_children_complete and c_complete
+            all_children_fully_explored = all_children_fully_explored and child.is_fully_explored
             total_ratio += c_ratio
 
-        # Use cached size as placeholder while stale/ghost, unless actual is larger
-        if node.state in (ScanState.STALE, ScanState.GHOST) and not all_children_complete:
-            node.size = max(total_size, node.cached_size)
-        else:
-            node.size = total_size
-
+        # Update node fields
+        node.confirmed_size = confirmed_size
+        node.size = confirmed_size # For UI compatibility
+        
+        # Estimated size uses cache as a fallback if we haven't explored much
+        node.estimated_size = max(estimated_size, node.cached_size)
+        
         node.atime = max_atime
         node.mtime = max_mtime
-
-        if node.state == ScanState.STALE and all_children_complete:
-            node.state = ScanState.VERIFIED
 
         # Completion ratio: average of self + all discovered children
         items_count = len(node.children) + 1
         node.completion_ratio = total_ratio / items_count
 
-        return node.size, node.atime, node.mtime, all_children_complete, node.completion_ratio
+        if all_children_fully_explored:
+            node.is_fully_explored = True
+            node.state = ScanState.VERIFIED
+
+        return node.confirmed_size, node.atime, node.mtime, node.is_fully_explored, node.completion_ratio
 
     async def persist_trails(self, node: DirectoryNode, threshold_mb: int = 100) -> None:
         """

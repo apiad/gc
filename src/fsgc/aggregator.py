@@ -18,6 +18,8 @@ def summarize_tree(
     summary: dict[str, Any] = {
         "name": node.path.name or str(node.path),
         "size": node.size,
+        "estimated_size": node.estimated_size,
+        "confirmed_size": node.confirmed_size,
         "state": node.state.name,
         "completion_ratio": node.completion_ratio,
         "is_others": False,

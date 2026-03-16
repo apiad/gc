@@ -77,13 +77,21 @@ def scan(
     path = path.resolve()
     console.print(f"[bold blue]Scanning[/] {path}...")
 
+    path = path.resolve()
+    console.print(f"[bold blue]Scanning[/] {path} using Informed MCTS...")
+
+    # Phase 0: Initialize Engine and Signatures
+    config_path = Path("config/signatures.yaml")
+    sig_manager = SignatureManager(config_path)
+    engine = HeuristicEngine(age_threshold_days=age_threshold)
+
     # Phase 1: Scan and build tree (Live Updates)
-    scanner = Scanner(path)
+    scanner = Scanner(path, engine=engine)
 
     async def run_scan() -> DirectoryNode:
         root_node = None
         with Live(console=console, refresh_per_second=10) as live:
-            async for snapshot in scanner.scan():
+            async for snapshot in scanner.scan(signatures=sig_manager.signatures):
                 root_node = snapshot
                 # Phase 2: Hierarchy Summary (Traditional Scan view)
                 summary = summarize_tree(
@@ -105,11 +113,8 @@ def scan(
         asyncio.run(scanner.persist_trails(root_node))
 
     # Phase 3: Mark (Scoring)
-    config_path = Path("config/signatures.yaml")
-    sig_manager = SignatureManager(config_path)
-    engine = HeuristicEngine(age_threshold_days=age_threshold)
-
-    with console.status("[bold yellow]Applying heuristics and scoring...[/]"):
+    with console.status("[bold yellow]Aggregating heuristic scores...[/]"):
+        # We need a way to get all scored nodes from the tree
         node_scores = engine.apply_scoring(root_node, sig_manager.signatures)
 
     # Phase 4: Aggregate (Grouping)
