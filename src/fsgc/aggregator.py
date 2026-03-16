@@ -1,5 +1,6 @@
 from typing import Any
 
+from fsgc.config import Signature
 from fsgc.scanner import DirectoryNode
 
 
@@ -13,18 +14,12 @@ def summarize_tree(
 ) -> dict[str, Any]:
     """
     Recursively summarize a DirectoryNode tree into a format suitable for TUI rendering.
-
-    Filtering Rules:
-    1. Descend up to max_depth.
-    2. Only show nodes larger than min_size.
-    3. Sort children by size (descending).
-    4. Keep children where (child.size / node.size) >= min_percent.
-    5. Keep at most max_children individual children.
-    6. Group remaining size into an "Others" virtual node.
     """
     summary: dict[str, Any] = {
         "name": node.path.name or str(node.path),
         "size": node.size,
+        "state": node.state.name,
+        "completion_ratio": node.completion_ratio,
         "is_others": False,
         "children": [],
     }
@@ -69,3 +64,49 @@ def summarize_tree(
 
     summary["children"] = children_list
     return summary
+
+
+def group_by_signature(
+    node_scores: dict[DirectoryNode, tuple[float, Signature]],
+) -> list[dict[str, Any]]:
+    """
+    Group scored nodes by their matching signature name for interactive selection.
+
+    Returns a list of groups:
+    [
+        {
+            "name": "Signature Name",
+            "size": total_size,
+            "avg_score": avg_score,
+            "nodes": [node1, node2, ...],
+            "auto_check": bool
+        },
+        ...
+    ]
+    """
+    groups: dict[str, dict[str, Any]] = {}
+
+    for node, (score, signature) in node_scores.items():
+        if signature.name not in groups:
+            groups[signature.name] = {
+                "name": signature.name,
+                "size": 0,
+                "scores": [],
+                "nodes": [],
+                "auto_check": False,
+            }
+
+        group = groups[signature.name]
+        group["size"] += node.size
+        group["scores"].append(score)
+        group["nodes"].append(node)
+
+    result = []
+    for group in groups.values():
+        avg_score = sum(group["scores"]) / len(group["scores"])
+        group["avg_score"] = avg_score
+        group["auto_check"] = avg_score > 0.8
+        del group["scores"]
+        result.append(group)
+
+    return sorted(result, key=lambda x: x["size"], reverse=True)
