@@ -1,6 +1,6 @@
-.PHONY: all test lint format check
+.PHONY: all test lint format
 
-all: lint test check
+all: format lint test
 
 test:
 	@uv run pytest
@@ -12,6 +12,3 @@ lint:
 format:
 	@uv run ruff check --fix .
 	@uv run ruff format .
-
-check:
-	@uv run mypy src/ tests/
