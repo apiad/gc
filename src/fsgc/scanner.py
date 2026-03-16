@@ -54,6 +54,14 @@ class DirectoryNode:
     entry_count: int = 0
     completion_ratio: float = 0.0
 
+    # MCTS metrics
+    visits: int = 0
+    total_reward: float = 0.0
+    confirmed_size: int = 0
+    estimated_size: int = 0
+    is_fully_explored: bool = False
+    heuristic_score: float = 0.0
+
     def __hash__(self) -> int:
         return hash(str(self.path))
 
