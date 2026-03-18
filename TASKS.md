@@ -16,13 +16,14 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
-- [/] Implement Canonical MCTS (@apiad) search strategy. (See plan: plans/implement-canonical-mcts.md)
+- [ ] Redesign scan heuristics using two-tiered selection (Trail + Signatures). (See plan: plans/redesign-scan-heuristics.md)
 - [ ] Refine garbage collection signatures for OS, applications, and build systems. (See research/garbage-collection-signatures/)
 
 ---
 
 ## Archive
 
+- [x] Implement Canonical MCTS search strategy. (2026-03-18) (See plan: plans/implement-canonical-mcts.md)
 - [x] Implement "Incremental Refinement" scanning animation. (2026-03-16) (See plan: plans/incremental-scan.md)
 - [x] Implement stochastic search engine and .gctrail caching. (2026-03-16) (See plan: plans/implement-stochastic-scanner.md)
 - [x] Implement Mark Phase (heuristic scoring) and interactive deletion. (2026-03-15) (See plan: plans/implement-mark-phase.md)
