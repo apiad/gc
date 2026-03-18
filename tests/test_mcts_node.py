@@ -32,3 +32,30 @@ def test_directory_node_parent_link():
     child2 = DirectoryNode(path=Path("root/child2"))
     root.add_child("child2", child2)
     assert root._unexplored_children_count == 2
+
+
+def test_directory_node_propagation():
+    root = DirectoryNode(path=Path("root"))
+    child = DirectoryNode(path=Path("root/child"))
+    root.add_child("child", child)
+    
+    # 1. Update child's local files
+    child.files_size = 1000
+    child.is_processed = True
+    child.update_metadata()
+    
+    # After update_metadata, root should have seen the delta
+    assert child.confirmed_size == 1000
+    assert root.confirmed_size == 1000
+    
+    # 2. Add a sub-child to child
+    subchild = DirectoryNode(path=Path("root/child/sub"))
+    child.add_child("sub", subchild)
+    
+    subchild.files_size = 500
+    subchild.is_processed = True
+    subchild.update_metadata()
+    
+    assert subchild.confirmed_size == 500
+    assert child.confirmed_size == 1500
+    assert root.confirmed_size == 1500
