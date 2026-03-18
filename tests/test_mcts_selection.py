@@ -19,6 +19,8 @@ def test_mcts_selection_prioritizes_larger_estimated_size():
     # child2 is larger estimated_size
     child1.estimated_size = 100
     child2.estimated_size = 500
+    child1.visits = 1
+    child2.visits = 1
 
     selected = scanner.select_node(root)
     assert selected == child2
