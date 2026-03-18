@@ -255,8 +255,6 @@ class Scanner:
 
             # 2. Termination Check
             if not current.children or current.is_fully_explored:
-                current.state = ScanState.FINISHED
-                await self.persist_trail(current)
                 break
 
             # 3. Selection (Move deeper)
@@ -266,6 +264,17 @@ class Scanner:
 
             current = next_node
             path.append(current)
+
+        # 4. Backpropagation (State & Trail Persistence)
+        # Recalculate metadata from bottom up to propagate FINISHED state
+        for node in reversed(path):
+            node.dirty = True
+            is_new_finished = not node.is_fully_explored
+            node.calculate_metadata()
+            
+            # If the node just became fully explored, persist its trail
+            if is_new_finished and node.is_fully_explored:
+                await self.persist_trail(node)
 
     async def scan(self) -> AsyncGenerator[DirectoryNode, None]:
         """
