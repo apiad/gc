@@ -42,7 +42,35 @@ def test_mcts_selection_tier1_trail():
     assert selected == child2
 
 
-def test_mcts_selection_tier2_signatures():
+def test_mcts_selection_uses_cached_signature():
+    class MockEngine:
+        def get_matching_signature(self, node, signatures):
+            # This should NOT be called during select_node if caching is working
+            raise RuntimeError("Engine should not be called during selection")
+
+    engine = MockEngine()
+    scanner = Scanner(Path("mock_dir"), engine=engine)
+    root = DirectoryNode(path=Path("mock_dir"))
+
+    child1 = DirectoryNode(path=Path("mock_dir/1"))
+    child2 = DirectoryNode(path=Path("mock_dir/2"))
+    root.add_child("1", child1)
+    root.add_child("2", child2)
+
+    # Set cached signatures
+    child1.signature = Signature(name="Low", pattern="**/1", priority=0.1)
+    child2.signature = Signature(name="High", pattern="**/2", priority=0.9)
+    scanner.signatures = [child1.signature, child2.signature]
+
+    # Both have visits to bypass unvisited prioritization
+    child1.visits = 1
+    child2.visits = 1
+
+    selected = scanner.select_node(root)
+    assert selected == child2
+
+
+def test_mcts_selection_tier1_signatures():
     # Setup scanner with signatures
     sigs = [
         Signature(name="High", pattern="**/high/", priority=0.9),
@@ -56,6 +84,10 @@ def test_mcts_selection_tier2_signatures():
     child2 = DirectoryNode(path=Path("mock_dir/high/"))
     root.add_child("low", child1)
     root.add_child("high", child2)
+
+    # Pre-populate signatures (simulating what Scanner._process_directory does)
+    child1.signature = sigs[1]
+    child2.signature = sigs[0]
 
     selected = scanner.select_node(root)
     assert selected == child2

@@ -210,12 +210,12 @@ class Scanner:
             return None
 
         # Tier 1: Signatures (Known Garbage Patterns)
-        if self.engine and self.signatures:
+        if self.signatures:
             best_priority = -1.0
             best_tier1 = None
             for child in available_children:
-                # Use engine to match signature
-                sig = self.engine.get_matching_signature(child, self.signatures)
+                # Use cached signature
+                sig = child.signature
                 if sig and sig.priority > best_priority:
                     best_priority = sig.priority
                     best_tier1 = child
