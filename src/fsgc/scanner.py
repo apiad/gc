@@ -66,6 +66,7 @@ class DirectoryNode:
     estimated_size: int = 0
     is_fully_explored: bool = False
     heuristic_score: float = 0.0
+    signature: Signature | None = None
 
     dirty: bool = True
     _metadata: Any = None
@@ -293,6 +294,8 @@ class Scanner:
         Perform an informed MCTS scan of the filesystem and yield tree snapshots.
         """
         root_node = DirectoryNode(path=self.root)
+        if self.engine:
+            root_node.signature = self.engine.get_matching_signature(root_node, self.signatures)
         self.tree = root_node
         self.path_to_node[self.root] = root_node
         self.visited.add(os.path.realpath(self.root))
@@ -349,6 +352,10 @@ class Scanner:
                     if real_path not in self.visited:
                         self.visited.add(real_path)
                         child_node = DirectoryNode(path=entry_path)
+                        if self.engine:
+                            child_node.signature = self.engine.get_matching_signature(
+                                child_node, self.signatures
+                            )
                         node.add_child(entry_name, child_node)
                         self.path_to_node[entry_path] = child_node
                 else:

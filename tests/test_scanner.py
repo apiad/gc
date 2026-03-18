@@ -12,7 +12,32 @@ def test_scanner_initialization(tmp_path: Path) -> None:
     assert scanner.stay_on_mount is True
 
 
-def test_scanner_builds_tree_with_metadata(tmp_path: Path) -> None:
+def test_scanner_caches_signature(tmp_path: Path) -> None:
+    """
+    Verify that Scanner populates the signature field on DirectoryNode.
+    """
+    from fsgc.config import Signature
+    from fsgc.engine import HeuristicEngine
+
+    # Setup a directory that should match a signature
+    venv_path = tmp_path / ".venv"
+    venv_path.mkdir()
+
+    signatures = [Signature(name="Venv", pattern="**/.venv", priority=0.9)]
+    engine = HeuristicEngine()
+    scanner = Scanner(tmp_path, engine=engine, signatures=signatures)
+
+    async def run_scan():
+        async for snapshot in scanner.scan():
+            if ".venv" in snapshot.children:
+                return snapshot.children[".venv"]
+        return None
+
+    venv_node = asyncio.run(run_scan())
+
+    assert venv_node is not None
+    assert venv_node.signature is not None
+    assert venv_node.signature.name == "Venv"
     # Create mock structure
     # tmp_path/
     #   file1 (100 bytes, old)
