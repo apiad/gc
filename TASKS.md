@@ -16,12 +16,12 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
-- [/] Refine garbage collection signatures for OS, applications, and build systems (@apiad). (See research/garbage-collection-signatures/)
 
 ---
 
 ## Archive
 
+- [x] Refine garbage collection signatures for OS, applications, and build systems. (2026-03-18) (See research/garbage-collection-signatures/)
 - [x] Implement graceful interruption of the scanning phase with `Ctrl+C`. (2026-03-18) (See plan: plans/graceful-interrupt-scan.md)
 - [x] Implement content-based sentinel verification for refined signature matching. (2026-03-18) (See plan: plans/implement-sentinel-verification.md)
 - [x] Fix scanner performance bottleneck (Signature Caching & UI Throttling). (2026-03-18) (See plan: plans/fix-scanner-performance.md)
