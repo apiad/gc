@@ -97,7 +97,7 @@ def _do_scan(
         except asyncio.CancelledError:
             if not root_node:
                 # Minimum progress (basic initialization / 1st iteration) not achieved.
-                raise KeyboardInterrupt
+                raise KeyboardInterrupt from None
             console.print("\n[bold yellow]Scan interrupted. Proceeding to cleanup...[/]\n")
 
         if root_node:
