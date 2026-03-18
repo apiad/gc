@@ -179,6 +179,7 @@ class Scanner:
         stay_on_mount: bool = True,
         engine: "Any" = None,
         signatures: list[Signature] | None = None,
+        max_concurrency: int = 4,
     ) -> None:
         self.root = root.resolve()
         self.stay_on_mount = stay_on_mount
@@ -188,6 +189,7 @@ class Scanner:
         self.path_to_node: dict[Path, DirectoryNode] = {}
         self.engine = engine
         self.signatures = signatures or []
+        self.max_concurrency = max_concurrency
 
     def _get_dev(self, path: Path) -> int:
         try:
@@ -271,7 +273,8 @@ class Scanner:
                 break
 
             # 3. Selection (Move deeper)
-            next_node = self.select_node(current)
+            # Offload heuristic selection to thread as it can be CPU bound for wide dirs
+            next_node = await asyncio.to_thread(self.select_node, current)
             if next_node is None or next_node == current:
                 break
 
@@ -304,18 +307,53 @@ class Scanner:
         # Initial expansion of root
         await self._process_directory(root_node)
 
+        queue: asyncio.Queue[DirectoryNode] = asyncio.Queue()
+        
+        # Seed the queue with top-level subdirectories
+        for child in root_node.children.values():
+            queue.put_nowait(child)
+
+        async def worker() -> None:
+            while True:
+                node = await queue.get()
+                iterations = 0
+                max_iterations = 50
+                
+                try:
+                    while not node.is_fully_explored and iterations < max_iterations:
+                        await self.mcts_iteration(node)
+                        iterations += 1
+                        
+                    if not node.is_fully_explored:
+                        # Find unexplored children to partition the work
+                        unexplored_children = [c for c in node.children.values() if not c.is_fully_explored]
+                        if unexplored_children:
+                            for c in unexplored_children:
+                                queue.put_nowait(c)
+                        else:
+                            # Edge case: node is not explored but has no unexplored children
+                            # (could happen if children haven't been discovered yet)
+                            queue.put_nowait(node)
+                except Exception as e:
+                    logger.error(f"Worker error on {node.path}: {e}")
+                finally:
+                    queue.task_done()
+
+        worker_tasks = [asyncio.create_task(worker()) for _ in range(self.max_concurrency)]
+        queue_task = asyncio.create_task(queue.join())
+
         last_yield_time = 0.0
         yield_interval = 0.1  # 100ms
 
-        while not root_node.is_fully_explored:
-            await self.mcts_iteration(root_node)
-
-            current_time = asyncio.get_event_loop().time()
-            # Yield snapshot frequently
-            if current_time - last_yield_time >= yield_interval:
-                root_node.calculate_metadata()
-                yield root_node
-                last_yield_time = current_time
+        try:
+            while not queue_task.done():
+                done, pending = await asyncio.wait([queue_task], timeout=yield_interval)
+                if not done:
+                    root_node.calculate_metadata()
+                    yield root_node
+        finally:
+            for w in worker_tasks:
+                w.cancel()
 
         root_node.calculate_metadata()
         yield root_node
@@ -329,15 +367,15 @@ class Scanner:
             trail_path = node.path / ".gctrail"
             if trail_path.exists():
                 try:
-                    data = trail_path.read_bytes()
+                    data = await asyncio.to_thread(trail_path.read_bytes)
                     trail = GCTrail.from_bytes(data)
                     node.cached_size = trail.total_size
                     node.cached_hash = trail.structural_hash
                     node.top_subdirs = trail.top_subdirs
                     node.estimated_size = trail.total_size
-                    # Check for quick verification
-                    os.stat(node.path)
-                    len(os.listdir(node.path))
+                    # Check for quick verification (offloaded to thread)
+                    await asyncio.to_thread(os.stat, node.path)
+                    await asyncio.to_thread(os.listdir, node.path)
                 except Exception as e:
                     logger.debug(f"Failed to load trail at {trail_path}: {e}")
 
@@ -355,8 +393,9 @@ class Scanner:
                         self.visited.add(real_path)
                         child_node = DirectoryNode(path=entry_path)
                         if self.engine:
-                            child_node.signature = self.engine.get_matching_signature(
-                                child_node, self.signatures
+                            # Offload signature matching
+                            child_node.signature = await asyncio.to_thread(
+                                self.engine.get_matching_signature, child_node, self.signatures
                             )
                         node.add_child(entry_name, child_node)
                         self.path_to_node[entry_path] = child_node
@@ -374,9 +413,11 @@ class Scanner:
             node.state = ScanState.ENQUEUED
             node.is_processed = True
 
-            # Re-match signature after evidence collection
+            # Re-match signature after evidence collection (offloaded)
             if self.engine:
-                node.signature = self.engine.get_matching_signature(node, self.signatures)
+                node.signature = await asyncio.to_thread(
+                    self.engine.get_matching_signature, node, self.signatures
+                )
 
         except (PermissionError, FileNotFoundError) as e:
             logger.debug(f"Skipping {node.path}: {e}")
