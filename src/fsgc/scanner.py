@@ -303,17 +303,18 @@ class Scanner:
         # Initial expansion of root
         await self._process_directory(root_node)
 
-        iteration = 0
+        last_yield_time = 0.0
+        yield_interval = 0.1  # 100ms
 
         while not root_node.is_fully_explored:
             await self.mcts_iteration(root_node)
 
+            current_time = asyncio.get_event_loop().time()
             # Yield snapshot frequently
-            if iteration % 100 == 0:
+            if current_time - last_yield_time >= yield_interval:
                 root_node.calculate_metadata()
                 yield root_node
-
-            iteration += 1
+                last_yield_time = current_time
 
         root_node.calculate_metadata()
         yield root_node
