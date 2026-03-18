@@ -16,13 +16,13 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
-- [/] Redesign scan heuristics using two-tiered selection (Trail + Signatures) (@apiad). (See plan: plans/redesign-scan-heuristics.md)
 - [ ] Refine garbage collection signatures for OS, applications, and build systems. (See research/garbage-collection-signatures/)
 
 ---
 
 ## Archive
 
+- [x] Redesign scan heuristics using two-tiered selection (Trail + Signatures). (2026-03-18) (See plan: plans/redesign-scan-heuristics.md)
 - [x] Implement Canonical MCTS search strategy. (2026-03-18) (See plan: plans/implement-canonical-mcts.md)
 - [x] Implement "Incremental Refinement" scanning animation. (2026-03-16) (See plan: plans/incremental-scan.md)
 - [x] Implement stochastic search engine and .gctrail caching. (2026-03-16) (See plan: plans/implement-stochastic-scanner.md)

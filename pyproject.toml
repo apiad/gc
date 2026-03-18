@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
-gc = "fsgc.__main__:run"
+fsgc = "fsgc.__main__:run"
 
 [build-system]
 requires = ["hatchling"]

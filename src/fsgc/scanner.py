@@ -170,7 +170,13 @@ class Scanner:
         "obj": 30,
     }
 
-    def __init__(self, root: Path, stay_on_mount: bool = True, engine: "Any" = None, signatures: list[Signature] | None = None) -> None:
+    def __init__(
+        self,
+        root: Path,
+        stay_on_mount: bool = True,
+        engine: "Any" = None,
+        signatures: list[Signature] | None = None,
+    ) -> None:
         self.root = root.resolve()
         self.stay_on_mount = stay_on_mount
         self.root_dev = self._get_dev(self.root)
@@ -220,7 +226,7 @@ class Scanner:
                 if sig and sig.priority > best_priority:
                     best_priority = sig.priority
                     best_tier2 = child
-            
+
             if best_tier2:
                 return best_tier2
 
@@ -271,7 +277,7 @@ class Scanner:
             node.dirty = True
             is_new_finished = not node.is_fully_explored
             node.calculate_metadata()
-            
+
             # If the node just became fully explored, persist its trail
             if is_new_finished and node.is_fully_explored:
                 await self.persist_trail(node)
@@ -378,8 +384,7 @@ class Scanner:
             # Calculate top 10 subdirectories
             children = sorted(node.children.values(), key=lambda x: x.size, reverse=True)
             node.top_subdirs = [
-                TopSubdirectory(name=child.path.name, size=child.size)
-                for child in children[:10]
+                TopSubdirectory(name=child.path.name, size=child.size) for child in children[:10]
             ]
 
             trail = GCTrail(

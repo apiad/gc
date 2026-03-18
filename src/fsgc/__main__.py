@@ -7,6 +7,8 @@ from typing import Annotated, Any
 import typer
 from rich.console import Console
 from rich.live import Live
+from rich.text import Text
+from rich.tree import Tree
 
 from fsgc.aggregator import group_by_signature, summarize_tree
 from fsgc.config import SignatureManager
@@ -16,7 +18,7 @@ from fsgc.trail import GCTrail
 from fsgc.ui.formatter import format_size, render_summary_tree
 from fsgc.ui.prompt import prompt_confirm_action, prompt_for_deletion
 
-app = typer.Typer(name="gc", help="Garbage Collector for your filesystem.")
+app = typer.Typer(name="fsgc", help="Heuristic-based filesystem scanner and garbage collector.")
 console = Console()
 
 
@@ -49,31 +51,15 @@ def sweep(selected_groups: list[dict[str, Any]], dry_run: bool = True) -> None:
     console.print(f"\n[bold green]{status} reclaimed {format_size(total_reclaimed)}![/]")
 
 
-@app.command()
-def scan(
-    path: Annotated[Path, typer.Argument(help="Root path to start scanning from.")] = Path("."),
-    dry_run: Annotated[
-        bool, typer.Option("--dry-run", help="Show what would be collected without deleting.")
-    ] = False,
-    min_size: Annotated[
-        int, typer.Option("--min-size", help="Minimum size in bytes to report.")
-    ] = 0,
-    depth: Annotated[int, typer.Option("--depth", "-d", help="Maximum display depth.")] = 2,
-    min_percent: Annotated[
-        float, typer.Option("--min-percent", "-p", help="Minimum size percentage of parent.")
-    ] = 0.01,
-    limit: Annotated[
-        int, typer.Option("--limit", "-l", help="Maximum number of children to list individually.")
-    ] = 10,
-    age_threshold: Annotated[
-        int, typer.Option("--age", "-a", help="Age threshold in days for recency heuristic.")
-    ] = 90,
+def _do_scan(
+    path: Path,
+    dry_run: bool,
+    min_size: int,
+    depth: int,
+    min_percent: float,
+    limit: int,
+    age_threshold: int,
 ) -> None:
-    """
-    gc: A heuristic-based garbage collector for your filesystem.
-
-    Scans a directory for garbage and proposes collection.
-    """
     path = path.resolve()
     console.print(f"[bold blue]Scanning[/] {path}...")
     console.print("[dim blue]Press Ctrl+C to break scanning at any time...\n")
@@ -109,6 +95,9 @@ def scan(
         return root_node
 
     root_node = asyncio.run(run_scan())
+    if not root_node:
+        return
+
     console.print(f"\nTotal size: [bold]{format_size(root_node.size)}[/].")
 
     # Phase 3: Mark (Scoring)
@@ -143,39 +132,96 @@ def scan(
 
 
 @app.command()
-def trail(
-    path: Annotated[Path, typer.Argument(help="Path to the .gctrail file.")] = Path(".gctrail"),
+def scan(
+    path: Annotated[Path, typer.Argument(help="Root path to start scanning from.")] = Path("."),
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Show what would be collected without deleting.")
+    ] = False,
+    min_size: Annotated[
+        int, typer.Option("--min-size", help="Minimum size in bytes to report.")
+    ] = 0,
+    depth: Annotated[int, typer.Option("--depth", "-d", help="Maximum display depth.")] = 2,
+    min_percent: Annotated[
+        float, typer.Option("--min-percent", "-p", help="Minimum size percentage of parent.")
+    ] = 0.01,
+    limit: Annotated[
+        int, typer.Option("--limit", "-l", help="Maximum number of children to list individually.")
+    ] = 10,
+    age_threshold: Annotated[
+        int, typer.Option("--age", "-a", help="Age threshold in days for recency heuristic.")
+    ] = 90,
 ) -> None:
     """
-    Debug command to dump the contents of a .gctrail binary file.
+    Scans a directory for garbage and proposes collection.
     """
-    if not path.exists():
-        console.print(f"[red]Error:[/] File {path} does not exist.")
-        raise typer.Exit(1)
+    _do_scan(path, dry_run, min_size, depth, min_percent, limit, age_threshold)
+
+
+def get_inspect_label(path: Path, trail: GCTrail) -> Text:
+    label = Text()
+    label.append(path.name if path.name else str(path), style="bold blue")
+    label.append(" - ", style="dim")
+    label.append(format_size(trail.total_size), style="green")
+    dt = datetime.datetime.fromtimestamp(trail.timestamp, datetime.UTC)
+    ts_str = dt.strftime("%Y-%m-%d %H:%M")
+    label.append(f" ({ts_str})", style="dim")
+    return label
+
+
+def build_inspect_tree(path: Path, max_depth: int, current_depth: int = 1) -> Tree | None:
+    trail_path = path if (path.is_file() and path.suffix == ".gctrail") else path / ".gctrail"
+    if not trail_path.exists():
+        return None
 
     try:
-        data = path.read_bytes()
+        data = trail_path.read_bytes()
         trail = GCTrail.from_bytes(data)
+    except Exception:
+        return None
 
-        console.print(f"[bold blue]Trail Summary for {path}[/]")
-        ts_str = datetime.datetime.fromtimestamp(trail.timestamp, datetime.UTC)
-        console.print(f"  Timestamp: [green]{ts_str}[/]")
-        console.print(f"  Structural Hash: [yellow]{trail.structural_hash}[/]")
-        console.print(f"  Total Size: [bold]{format_size(trail.total_size)}[/]")
-        console.print(f"  Reconstructible: [bold]{format_size(trail.reconstructible_size)}[/]")
-        console.print(f"  Noise: [bold]{format_size(trail.noise_size)}[/]")
+    node_path = path if path.is_dir() else path.parent
+    tree = Tree(get_inspect_label(node_path, trail))
 
-        if trail.top_subdirs:
-            console.print("\n[bold]Top Subdirectories:[/]")
-            for sub in trail.top_subdirs:
-                console.print(f"- {sub.name}: [green]{format_size(sub.size)}[/]")
+    if current_depth < max_depth:
+        for sub in trail.top_subdirs:
+            subdir_path = node_path / sub.name
+            if subdir_path.is_dir():
+                sub_tree = build_inspect_tree(subdir_path, max_depth, current_depth + 1)
+                if sub_tree:
+                    tree.add(sub_tree)
+                else:
+                    leaf = Text()
+                    leaf.append(sub.name, style="blue")
+                    leaf.append(" - ", style="dim")
+                    leaf.append(format_size(sub.size), style="dim green")
+                    tree.add(leaf)
+            else:
+                leaf = Text()
+                leaf.append(sub.name, style="dim blue")
+                leaf.append(" - ", style="dim")
+                leaf.append(format_size(sub.size), style="dim green")
+                tree.add(leaf)
+    return tree
 
-        else:
-            console.print("\n[italic]No top subdirectories recorded.[/]")
 
-    except Exception as e:
-        console.print(f"[red]Error parsing trail file:[/] {e}")
-        raise typer.Exit(1) from e
+@app.command(name="inspect")
+def inspect(
+    path: Annotated[Path, typer.Argument(help="Path to the directory containing .gctrail.")] = Path(
+        "."
+    ),
+    depth: Annotated[
+        int, typer.Option("--depth", "-d", help="Recursion depth for trail inspection.")
+    ] = 1,
+) -> None:
+    """
+    Inspect the contents of .gctrail files.
+    """
+    tree = build_inspect_tree(path, depth)
+    if tree:
+        console.print(tree)
+    else:
+        console.print(f"[red]Error:[/] No .gctrail found at {path}")
+        raise typer.Exit(1)
 
 
 def run() -> None:

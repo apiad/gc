@@ -1,6 +1,8 @@
 import time
+
 import pytest
-from fsgc.trail import MAGIC, TopSubdirectory, GCTrail
+
+from fsgc.trail import MAGIC, GCTrail, TopSubdirectory
 
 
 def test_trail_roundtrip():
