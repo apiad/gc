@@ -16,6 +16,7 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
+- [ ] Implement "Low-Hanging Fruit" performance optimizations (Thread pool scaling, I/O efficiency, and UI throttling). (@apiad) (See plan: plans/performance-low-hanging-fruits.md)
 
 ---
 
