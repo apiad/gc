@@ -70,7 +70,7 @@ class DirectoryNode:
     file_evidence: set[str] = field(default_factory=set)
 
     parent: "DirectoryNode | None" = field(default=None, repr=False)
-    
+
     # Internal counters for incremental propagation
     _sum_child_confirmed_size: int = 0
     _sum_child_estimated_size: int = 0
@@ -99,30 +99,30 @@ class DirectoryNode:
         old_confirmed = self.confirmed_size
         old_estimated = self.estimated_size
         old_ratio = self.completion_ratio
-        
+
         # 1. Size calculation
         self.confirmed_size = self.files_size + self._sum_child_confirmed_size
         self.size = self.confirmed_size  # UI Compatibility
-        
+
         # Estimated size uses counters + local files + fallback to cached
         est = self.files_size + self._sum_child_estimated_size
         self.estimated_size = max(est, self.cached_size)
-        
+
         # 2. Ratio calculation
         total_ratio_sum = (1.0 if self.is_processed else 0.0) + self._sum_child_completion_ratio
         items_count = len(self.children) + 1
         self.completion_ratio = total_ratio_sum / items_count
-        
+
         # 3. State calculation
         became_fully_explored = False
         if not self.is_fully_explored:
             if self.is_processed and self._unexplored_children_count == 0:
                 self.is_fully_explored = True
                 became_fully_explored = True
-        
+
         if self.is_fully_explored:
             self.state = ScanState.FINISHED
-        
+
         # 4. Propagate if parent exists
         if self.parent:
             delta_confirmed = self.confirmed_size - old_confirmed
@@ -130,7 +130,7 @@ class DirectoryNode:
             # Ratio delta needs to be normalized by parent's items_count?
             # No, parent stores _sum_child_completion_ratio as raw sum.
             delta_ratio = self.completion_ratio - old_ratio
-            
+
             self.parent.propagate_child_update(
                 delta_confirmed=delta_confirmed,
                 delta_estimated=delta_estimated,
@@ -155,13 +155,13 @@ class DirectoryNode:
         self._sum_child_confirmed_size += delta_confirmed
         self._sum_child_estimated_size += delta_estimated
         self._sum_child_completion_ratio += delta_ratio
-        
+
         if became_fully_explored:
             self._unexplored_children_count -= 1
-            
+
         self.atime = max(self.atime, atime)
         self.mtime = max(self.mtime, mtime)
-        
+
         self.update_metadata()
 
     def calculate_metadata(self) -> tuple[int, float, float, bool, float]:
@@ -309,7 +309,7 @@ class Scanner:
         for node in reversed(path):
             node.visits += 1
             old_fully_explored = node.is_fully_explored
-            
+
             node.update_metadata()
 
             # If the node just became fully explored, persist its trail
@@ -450,7 +450,7 @@ class Scanner:
                 node.signature = await asyncio.to_thread(
                     self.engine.get_matching_signature, node, self.signatures
                 )
-            
+
             # Initial metadata sync
             node.update_metadata()
 
