@@ -94,11 +94,10 @@ def _do_scan(
                         tree = render_summary_tree(summary)
                         live.update(tree)
                         last_update_time = current_time
-        except KeyboardInterrupt:
+        except asyncio.CancelledError:
             if not root_node:
                 # Minimum progress (basic initialization / 1st iteration) not achieved.
-                # Re-raise to exit the program entirely.
-                raise
+                raise KeyboardInterrupt
             console.print("\n[bold yellow]Scan interrupted. Proceeding to cleanup...[/]\n")
 
         if root_node:
@@ -106,7 +105,10 @@ def _do_scan(
 
         return root_node
 
-    root_node = asyncio.run(run_scan())
+    try:
+        root_node = asyncio.run(run_scan())
+    except KeyboardInterrupt:
+        return
     if not root_node:
         return
 
