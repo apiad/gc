@@ -1,0 +1,88 @@
+signatures:
+  # Python
+  - name: "Python Bytecode"
+    pattern: "**/__pycache__"
+    priority: 1.0
+  - name: "Python Virtualenv"
+    pattern: "**/.venv"
+    priority: 0.9
+    min_age_days: 7
+  - name: "Python Tests Cache"
+    pattern: "**/.pytest_cache"
+    priority: 0.8
+  - name: "Mypy Cache"
+    pattern: "**/.mypy_cache"
+    priority: 0.7
+  - name: "Ruff Cache"
+    pattern: "**/.ruff_cache"
+    priority: 0.7
+  - name: "Tox Environment"
+    pattern: "**/.tox"
+    priority: 0.8
+
+  # JavaScript / Node.js
+  - name: "Node Dependencies"
+    pattern: "**/node_modules"
+    priority: 0.8
+    min_age_days: 7
+  - name: "npm Cache"
+    pattern: "**/.npm"
+    priority: 0.6
+  - name: "Yarn Cache"
+    pattern: "**/.yarn/cache"
+    priority: 0.6
+
+  # Rust
+  - name: "Rust Target"
+    pattern: "**/target"
+    priority: 0.8
+    min_age_days: 2
+
+  # C# / .NET
+  - name: "C# Build Artifacts (bin)"
+    pattern: "**/bin"
+    priority: 0.5
+  - name: "C# Intermediate Artifacts (obj)"
+    pattern: "**/obj"
+    priority: 0.5
+
+  # Java / Build Systems
+  - name: "Build Artifacts"
+    pattern: "**/build"
+    priority: 0.6
+  - name: "Distribution Artifacts"
+    pattern: "**/dist"
+    priority: 0.6
+  - name: "Output Artifacts"
+    pattern: "**/out"
+    priority: 0.6
+
+  # Machine Learning / Tools
+  - name: "Hugging Face Cache"
+    pattern: "**/.cache/huggingface"
+    priority: 0.5
+    min_age_days: 30
+  - name: "PyTorch Hub Cache"
+    pattern: "**/.cache/torch"
+    priority: 0.5
+    min_age_days: 30
+  - name: "uv Cache"
+    pattern: "**/.cache/uv"
+    priority: 0.7
+    min_age_days: 7
+  - name: "pip Cache"
+    pattern: "**/.cache/pip"
+    priority: 0.6
+    min_age_days: 30
+  - name: "Cargo Registry"
+    pattern: "**/.cargo/registry"
+    priority: 0.4
+    min_age_days: 60
+
+  # OS / Metadata
+  - name: "MacOS Metadata"
+    pattern: "**/.DS_Store"
+    priority: 1.0
+  - name: "Thumbnail Cache"
+    pattern: "**/.thumbnails"
+    priority: 0.8

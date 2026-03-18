@@ -21,9 +21,13 @@ class SignatureManager:
     Manages loading and matching of garbage signatures.
     """
 
-    def __init__(self, config_path: Path) -> None:
-        self.config_path = config_path
+    def __init__(self, config_path: Path | None = None) -> None:
         self.signatures: list[Signature] = []
+        self.default_path = Path(__file__).parent / "signatures.yaml"
+        self.user_path = Path.home() / ".config" / "fsgc" / "signatures.yaml"
+        self.config_path = config_path or (
+            self.user_path if self.user_path.exists() else self.default_path
+        )
         self.load()
 
     def load(self) -> None:

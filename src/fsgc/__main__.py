@@ -65,8 +65,7 @@ def _do_scan(
     console.print("[dim blue]Press Ctrl+C to break scanning at any time...\n")
 
     # Phase 0: Initialize Engine and Signatures
-    config_path = Path("config/signatures.yaml")
-    sig_manager = SignatureManager(config_path)
+    sig_manager = SignatureManager()
     engine = HeuristicEngine(age_threshold_days=age_threshold)
 
     # Phase 1: Scan and build tree (Live Updates)
