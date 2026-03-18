@@ -44,7 +44,7 @@ def test_mcts_selection_tier1_trail():
 
 def test_mcts_selection_uses_cached_signature():
     class MockEngine:
-        def get_matching_signature(self, node, signatures):
+        def get_matching_signature(self, _node, _signatures):
             # This should NOT be called during select_node if caching is working
             raise RuntimeError("Engine should not be called during selection")
 

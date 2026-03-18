@@ -83,7 +83,9 @@ class HeuristicEngine:
 
         r_score = signature.priority
 
-        score = (self.w_pattern * p_score) + (self.w_priority * r_score) + (self.w_recency * a_score)
+        score = (
+            (self.w_pattern * p_score) + (self.w_priority * r_score) + (self.w_recency * a_score)
+        )
         return min(1.0, max(0.0, score))
 
     def apply_scoring(

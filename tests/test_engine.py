@@ -59,9 +59,7 @@ def test_engine_optimized_matching():
 
     sigs = [
         Signature(name="Simple", pattern="**/node_modules", priority=0.9),
-        Signature(
-            name="Complex", pattern="**/google-chrome-backup-crashrecovery*", priority=0.5
-        ),
+        Signature(name="Complex", pattern="**/google-chrome-backup-crashrecovery*", priority=0.5),
     ]
 
     # Test simple name match
