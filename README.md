@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Release](https://img.shields.io/badge/Release-v0.3.0-blue.svg?style=for-the-badge)](https://github.com/apiad/gc/releases)
+[![Release](https://img.shields.io/badge/Release-v0.4.0-blue.svg?style=for-the-badge)](https://github.com/apiad/gc/releases)
 [![License](https://img.shields.io/github/license/apiad/gc?style=for-the-badge&color=success)](LICENSE)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=for-the-badge)](https://github.com/apiad/gc/graphs/commit-activity)
 

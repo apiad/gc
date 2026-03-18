@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-03-18
+
+### Added
+- Plan for porting MCTS scanner engine to Rust (`plans/port-mcts-to-rust.md`).
+
+### Changed
+- Implemented dynamic worker count using `DEFAULT_WORKERS` in `src/fsgc/__main__.py`.
+- Optimized `os.scandir` fetching and added `import time` to `src/fsgc/scanner.py` as part of "Low-Hanging Fruit" optimizations.
+
+### Fixed
+- Addressed an accidental syntax error in `src/fsgc/__main__.py`.
+
 ## [0.3.0] - 2026-03-18
 
 ### Added
