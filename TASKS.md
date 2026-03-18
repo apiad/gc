@@ -16,12 +16,14 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
-- [/] Implement incremental metadata propagation for wide-tree performance. (@apiad) (See plan: plans/fix-scanner-performance.md)
 
 ---
 
 ## Archive
 
+- [x] Implement CI/CD workflow for automated testing and PyPI publication (via `uv publish`). (2026-03-18)
+- [x] Create comprehensive project documentation in `docs/` (Overview, Deployment, Design, Development). (2026-03-18) (@apiad) (See plan: plans/documentation.md)
+- [x] Implement incremental metadata propagation for wide-tree performance. (2026-03-18) (@apiad) (See plan: plans/fix-scanner-performance.md)
 - [x] Implement real-time scan speed indicator (MB/s) and final summary statistics. (2026-03-18)
 - [x] Accelerate the scanner using a bounded worker pool and `asyncio.to_thread` for parallel MCTS exploration. (2026-03-18) (See plan: plans/parallel-scanner.md)
 
@@ -37,7 +39,7 @@ Put done tasks into the Archive.
 - [x] Update `install.sh` to be served via GitHub Pages and update all references to use the new URL. (2026-03-11)
 - [x] Create comprehensive User Guide (`docs/user-guide.md`) based on "The Architect in the Machine" philosophy. (2026-03-11) (See plan: plans/user-guide-integration.md)
 - [x] Refine `/plan` command to strictly enforce a non-execution mandate for generated plans. (2026-03-11)
-- [x] Integrate MkDocs with Material theme and setup automatic GitHub Pages deployment via CI/CD. (2026-03-11) (See plan: plans/mkdocs-integration.md)
+- [x] Integrate MkDocs with Material theme and setup automatic GitHub Pages deployment via CI/CD. (2026-03-18) (See plan: plans/mkdocs-integration.md)
 - [x] Create comprehensive project documentation in `docs/` (Overview, Deployment, Design, Development). (2026-03-11)
 - [x] Refine `/onboard` command to include documentation or source code discovery. (2026-03-11)
 - [x] Simplify `/onboard` command to use direct file analysis instead of sub-agents. (2026-03-11)

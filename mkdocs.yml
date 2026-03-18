@@ -1,0 +1,53 @@
+site_name: fsgc
+site_description: A stochastic filesystem garbage collector using Monte Carlo Tree Search.
+repo_url: https://github.com/apiad/gc
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: teal
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: teal
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+nav:
+  - Overview: index.md
+  - User Guide:
+    - Installation & Usage: deploy.md
+    - GC Signatures: signatures.md
+  - Concepts:
+    - Architecture: design.md
+    - GCTrail Schema: trail.md
+  - Development:
+    - Developer Guide: develop.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - toc:
+      permalink: true
