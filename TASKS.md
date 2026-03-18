@@ -16,13 +16,13 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
-- [/] Implement content-based sentinel verification for refined signature matching (@apiad). (See plan: plans/implement-sentinel-verification.md)
 - [ ] Refine garbage collection signatures for OS, applications, and build systems. (See research/garbage-collection-signatures/)
 
 ---
 
 ## Archive
 
+- [x] Implement content-based sentinel verification for refined signature matching. (2026-03-18) (See plan: plans/implement-sentinel-verification.md)
 - [x] Fix scanner performance bottleneck (Signature Caching & UI Throttling). (2026-03-18) (See plan: plans/fix-scanner-performance.md)
 - [x] Redesign scan heuristics using two-tiered selection (Trail + Signatures). (2026-03-18) (See plan: plans/redesign-scan-heuristics.md)
 - [x] Implement Canonical MCTS search strategy. (2026-03-18) (See plan: plans/implement-canonical-mcts.md)
