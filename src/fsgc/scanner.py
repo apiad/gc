@@ -236,7 +236,16 @@ class Scanner:
             node.state = ScanState.FINISHED
             return None
 
-        # Tier 1: Signatures (Known Garbage Patterns)
+        # Tier 1: Trail Data (Large subdirectories from previous scans)
+        if node.top_subdirs:
+            # Create a lookup for children that match trail names
+            trail_names = {sub.name: sub.size for sub in node.top_subdirs}
+            tier2_candidates = [c for c in available_children if c.path.name in trail_names]
+            if tier2_candidates:
+                # Return the candidate that was historically largest
+                return max(tier2_candidates, key=lambda x: trail_names.get(x.path.name, 0))
+
+        # Tier 2: Signatures (Known Garbage Patterns)
         if self.signatures:
             best_priority = -1.0
             best_tier1 = None
@@ -249,15 +258,6 @@ class Scanner:
 
             if best_tier1:
                 return best_tier1
-
-        # Tier 2: Trail Data (Large subdirectories from previous scans)
-        if node.top_subdirs:
-            # Create a lookup for children that match trail names
-            trail_names = {sub.name: sub.size for sub in node.top_subdirs}
-            tier2_candidates = [c for c in available_children if c.path.name in trail_names]
-            if tier2_candidates:
-                # Return the candidate that was historically largest
-                return max(tier2_candidates, key=lambda x: trail_names.get(x.path.name, 0))
 
         # Fallback: Greedy largest estimated size, prioritizing unvisited
         unvisited = [c for c in available_children if c.visits == 0]
@@ -435,12 +435,12 @@ class Scanner:
                         node.files_size += stat.st_size
                         node.atime = max(node.atime, stat.st_atime)
                         node.mtime = max(node.mtime, stat.st_mtime)
-                        
+
                         # Collect evidence (Only if potentially relevant to sentinels)
                         if not node.file_evidence and self.engine:
                             if self.engine.is_relevant_evidence(entry_name):
                                 node.file_evidence.add(entry_name)
-                            
+
                             # Fast suffix check without Path object
                             ext = os.path.splitext(entry_name)[1]
                             if ext and self.engine.is_relevant_evidence(ext):
