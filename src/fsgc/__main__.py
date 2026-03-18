@@ -1,8 +1,10 @@
 import asyncio
 import datetime
+import os
 import shutil
 import time
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -77,6 +79,12 @@ def _do_scan(
     )
 
     async def run_scan() -> DirectoryNode | None:
+        # Step 1: Scale thread pool for high-concurrency I/O
+        loop = asyncio.get_running_loop()
+        # Ensure we have enough threads for concurrent os.scandir calls
+        # Default is often too small for high-latency or deep filesystems
+        loop.set_default_executor(ThreadPoolExecutor(max_workers=64))
+
         root_node = None
         last_update_time = 0.0
         update_interval = 0.1  # 100ms (10Hz refresh)
@@ -189,8 +197,14 @@ def scan(
         int, typer.Option("--age", "-a", help="Age threshold in days for recency heuristic.")
     ] = 90,
     workers: Annotated[
-        int, typer.Option("--workers", "-w", help="Number of concurrent workers.")
-    ] = 8,
+        int,
+        typer.Option(
+            "--workers",
+            "-w",
+            help="Number of concurrent workers.",
+            show_default=f"min(32, (cpu_count or 1) * 4) [current: {min(32, (os.cpu_count() or 1) * 4)}]",
+        ),
+    ] = min(32, (os.cpu_count() or 1) * 4),
 ) -> None:
     """
     Scans a directory for garbage and proposes collection.
