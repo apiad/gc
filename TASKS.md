@@ -16,11 +16,12 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
-- [/] Accelerate the scanner using a bounded worker pool and `asyncio.to_thread` for parallel MCTS exploration (@apiad). (See plan: plans/parallel-scanner.md)
 
 ---
 
 ## Archive
+
+- [x] Accelerate the scanner using a bounded worker pool and `asyncio.to_thread` for parallel MCTS exploration. (2026-03-18) (See plan: plans/parallel-scanner.md)
 
 - [x] Refine garbage collection signatures for OS, applications, and build systems. (2026-03-18) (See research/garbage-collection-signatures/)
 - [x] Implement graceful interruption of the scanning phase with `Ctrl+C`. (2026-03-18) (See plan: plans/graceful-interrupt-scan.md)
