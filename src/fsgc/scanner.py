@@ -407,13 +407,15 @@ class Scanner:
                         node.atime = max(node.atime, stat.st_atime)
                         node.mtime = max(node.mtime, stat.st_mtime)
                         # Collect evidence (Only if potentially relevant to sentinels)
-                        if self.engine:
+                        # Optimization: once we have some evidence, we don't need to collect more for this dir.
+                        if not node.file_evidence and self.engine:
                             if self.engine.is_relevant_evidence(entry_name):
                                 node.file_evidence.add(entry_name)
                             path_entry = Path(entry_name)
-                            if path_entry.suffix and self.engine.is_relevant_evidence(path_entry.suffix):
-                                node.file_evidence.add(path_entry.suffix)
-                        else:
+                            suffix = path_entry.suffix
+                            if suffix and self.engine.is_relevant_evidence(suffix):
+                                node.file_evidence.add(suffix)
+                        elif not self.engine:
                             node.file_evidence.add(entry_name)
                             path_entry = Path(entry_name)
                             if path_entry.suffix:

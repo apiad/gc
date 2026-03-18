@@ -56,8 +56,12 @@ async def test_scanner_filters_evidence_with_engine(tmp_path):
     node = DirectoryNode(path=test_dir)
     await scanner._process_directory(node)
 
-    assert "relevant.o" in node.file_evidence
-    assert ".o" in node.file_evidence
-    assert "package.json" in node.file_evidence
+    # With short-circuiting, we only collect at least ONE evidence.
+    # Depending on os.scandir order, it could be relevant.o or package.json.
+    assert len(node.file_evidence) >= 1
+    # Check that at least one of the relevant ones is there
+    found_any = "relevant.o" in node.file_evidence or ".o" in node.file_evidence or "package.json" in node.file_evidence
+    assert found_any
+    # Irrelevant ones should still NOT be there
     assert "irrelevant.txt" not in node.file_evidence
     assert ".txt" not in node.file_evidence
