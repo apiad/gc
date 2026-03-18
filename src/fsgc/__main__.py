@@ -74,7 +74,7 @@ def _do_scan(
     async def run_scan() -> DirectoryNode | None:
         root_node = None
         last_update_time = 0.0
-        update_interval = 0.25  # 250ms (4Hz refresh)
+        update_interval = 0.1  # 100ms (10Hz refresh)
 
         try:
             with Live(console=console, refresh_per_second=10) as live:
