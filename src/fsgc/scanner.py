@@ -387,30 +387,35 @@ class Scanner:
         try:
             # 1. Trail Logic (Fast-path if hash matches)
             trail_path = node.path / ".gctrail"
-            if trail_path.exists():
-                try:
-                    data = await asyncio.to_thread(trail_path.read_bytes)
-                    trail = GCTrail.from_bytes(data)
-                    node.cached_size = trail.total_size
-                    node.cached_hash = trail.structural_hash
-                    node.top_subdirs = trail.top_subdirs
-                    node.estimated_size = trail.total_size
-                    # Check for quick verification (offloaded to thread)
-                    await asyncio.to_thread(os.stat, node.path)
-                    await asyncio.to_thread(os.listdir, node.path)
-                except Exception as e:
-                    logger.debug(f"Failed to load trail at {trail_path}: {e}")
+            # Optimization: Wrap trail existence check and reading into a single thread call
+            def load_trail(p: Path) -> GCTrail | None:
+                if p.exists():
+                    try:
+                        return GCTrail.from_bytes(p.read_bytes())
+                    except Exception:
+                        return None
+                return None
+
+            trail = await asyncio.to_thread(load_trail, trail_path)
+            if trail:
+                node.cached_size = trail.total_size
+                node.cached_hash = trail.structural_hash
+                node.top_subdirs = trail.top_subdirs
+                node.estimated_size = trail.total_size
+                # Verification is still needed, but trail provides immediate estimate
 
             # 2. Directory Exploration
             entries = await asyncio.to_thread(self._get_entries, node.path)
             node.entry_count = len(entries)
 
-            for entry_name, entry_path, is_dir, stat in entries:
-                if self.stay_on_mount and self._get_dev(entry_path) != self.root_dev:
+            for entry_name, entry_path_str, is_dir, stat in entries:
+                # Use stat.st_dev if available to check mount boundaries
+                if self.stay_on_mount and stat and stat.st_dev != self.root_dev:
                     continue
 
                 if is_dir:
-                    real_path = os.path.realpath(entry_path)
+                    entry_path = Path(entry_path_str)
+                    real_path = os.path.realpath(entry_path_str)
                     if real_path not in self.visited:
                         self.visited.add(real_path)
                         child_node = DirectoryNode(path=entry_path)
@@ -426,21 +431,21 @@ class Scanner:
                         node.files_size += stat.st_size
                         node.atime = max(node.atime, stat.st_atime)
                         node.mtime = max(node.mtime, stat.st_mtime)
+                        
                         # Collect evidence (Only if potentially relevant to sentinels)
-                        # Optimization: once we have some evidence, we don't need to collect
-                        # more for this dir.
                         if not node.file_evidence and self.engine:
                             if self.engine.is_relevant_evidence(entry_name):
                                 node.file_evidence.add(entry_name)
-                            path_entry = Path(entry_name)
-                            suffix = path_entry.suffix
-                            if suffix and self.engine.is_relevant_evidence(suffix):
-                                node.file_evidence.add(suffix)
+                            
+                            # Fast suffix check without Path object
+                            ext = os.path.splitext(entry_name)[1]
+                            if ext and self.engine.is_relevant_evidence(ext):
+                                node.file_evidence.add(ext)
                         elif not self.engine:
                             node.file_evidence.add(entry_name)
-                            path_entry = Path(entry_name)
-                            if path_entry.suffix:
-                                node.file_evidence.add(path_entry.suffix)
+                            ext = os.path.splitext(entry_name)[1]
+                            if ext:
+                                node.file_evidence.add(ext)
 
             node.state = ScanState.ENQUEUED
             node.is_processed = True
@@ -457,9 +462,10 @@ class Scanner:
         except (PermissionError, FileNotFoundError) as e:
             logger.debug(f"Skipping {node.path}: {e}")
 
-    def _get_entries(self, path: Path) -> list[tuple[str, Path, bool, os.stat_result | None]]:
+    def _get_entries(self, path: Path) -> list[tuple[str, str, bool, os.stat_result | None]]:
         """
         Blocking call to scan a directory and return metadata for its entries.
+        Returns (name, path_str, is_dir, stat).
         """
         results = []
         try:
@@ -468,9 +474,9 @@ class Scanner:
                     is_dir = entry.is_dir(follow_symlinks=False)
                     try:
                         stat = entry.stat(follow_symlinks=False)
-                        results.append((entry.name, Path(entry.path), is_dir, stat))
+                        results.append((entry.name, entry.path, is_dir, stat))
                     except (PermissionError, FileNotFoundError):
-                        results.append((entry.name, Path(entry.path), is_dir, None))
+                        results.append((entry.name, entry.path, is_dir, None))
         except (PermissionError, FileNotFoundError):
             pass
         return results
