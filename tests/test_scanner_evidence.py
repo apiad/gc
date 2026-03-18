@@ -1,7 +1,9 @@
-import pytest
 from pathlib import Path
+
+import pytest
+
 from fsgc.scanner import DirectoryNode, Scanner
-from fsgc.config import SignatureManager, Signature
+
 
 def test_directory_node_file_evidence():
     node = DirectoryNode(path=Path("/tmp/test"))

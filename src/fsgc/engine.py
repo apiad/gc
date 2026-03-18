@@ -1,3 +1,4 @@
+import fnmatch
 import time
 
 from fsgc.config import Signature
@@ -43,6 +44,15 @@ class HeuristicEngine:
             matchers.append((is_simple, match_pattern, sig))
         return matchers
 
+    def _verify_sentinels(self, node: DirectoryNode, sig: Signature) -> bool:
+        if not sig.sentinels:
+            return True
+        for sentinel in sig.sentinels:
+            for ev in node.file_evidence:
+                if fnmatch.fnmatch(ev, sentinel) or ev == sentinel:
+                    return True
+        return False
+
     def get_matching_signature(
         self, node: DirectoryNode, signatures: list[Signature]
     ) -> Signature | None:
@@ -54,12 +64,17 @@ class HeuristicEngine:
             self._matchers = self._get_matchers(signatures)
 
         for is_simple, pattern, sig in self._matchers:
+            matched = False
             if is_simple:
                 if node.path.name == pattern:
-                    return sig
+                    matched = True
             else:
                 if node.path.match(sig.pattern):
-                    return sig
+                    matched = True
+            
+            if matched and self._verify_sentinels(node, sig):
+                return sig
+                
         return None
 
     def calculate_score(self, node: DirectoryNode, signature: Signature | None) -> float:

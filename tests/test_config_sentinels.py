@@ -1,6 +1,7 @@
-from pathlib import Path
 import yaml
+
 from fsgc.config import Signature, SignatureManager
+
 
 def test_signature_sentinels_field():
     # Test dataclass directly
