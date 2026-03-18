@@ -47,7 +47,9 @@ async def test_scanner_filters_evidence_with_engine(tmp_path):
     (test_dir / "irrelevant.txt").touch()
     (test_dir / "package.json").touch()
 
-    sig = Signature(name="test", pattern="**/project", priority=1.0, sentinels=["*.o", "package.json"])
+    sig = Signature(
+        name="test", pattern="**/project", priority=1.0, sentinels=["*.o", "package.json"]
+    )
     engine = HeuristicEngine()
     # Initialize engine with signatures
     engine.get_matching_signature(DirectoryNode(path=test_dir), [sig])
@@ -60,7 +62,11 @@ async def test_scanner_filters_evidence_with_engine(tmp_path):
     # Depending on os.scandir order, it could be relevant.o or package.json.
     assert len(node.file_evidence) >= 1
     # Check that at least one of the relevant ones is there
-    found_any = "relevant.o" in node.file_evidence or ".o" in node.file_evidence or "package.json" in node.file_evidence
+    found_any = (
+        "relevant.o" in node.file_evidence
+        or ".o" in node.file_evidence
+        or "package.json" in node.file_evidence
+    )
     assert found_any
     # Irrelevant ones should still NOT be there
     assert "irrelevant.txt" not in node.file_evidence

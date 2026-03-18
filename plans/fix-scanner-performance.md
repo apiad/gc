@@ -1,35 +1,39 @@
-# Plan: Fix Scanner Performance Bottleneck
+# Implementation Plan: Incremental Metadata Propagation
 
-This plan addresses the quadratic complexity bottleneck in the filesystem scanner by implementing signature caching, optimizing heuristic matching, and throttling UI updates.
+This plan addresses the performance bottleneck where the scanner's $O(D \cdot W)$ metadata calculation blocks the async event loop in wide directory trees. By shifting to a push-based incremental update model, we reduce UI snapshot complexity to $O(1)$ and update propagation to $O(D)$.
 
-## 1. Objective
-Reduce scanner selection complexity from $O(N^2)$ to $O(N)$ and minimize CPU overhead from redundant UI rendering and signature matching.
+## Objective
+Replace the recursive, pull-based `calculate_metadata()` with a push-based system where each `DirectoryNode` updates its parent incrementally upon change.
 
-## 2. Technical Strategy
+## Architectural Impact
+- **Performance**: UI refreshes become $O(1)$ by reading root fields directly. MCTS backpropagation becomes $O(D)$.
+- **Concurrency**: Updates remain synchronous within the `asyncio` loop, ensuring thread-safety without locks.
+- **Derived State**: `is_fully_explored` and `ScanState.FINISHED` propagate automatically from leaves to root.
 
-### 2.1 Signature Caching (`src/fsgc/scanner.py`)
-- Add `signature: Signature | None = None` to the `DirectoryNode` dataclass.
-- Update `Scanner._process_directory`: Immediately after a `child_node` is created, assign its signature using `self.engine.get_matching_signature(child_node, self.signatures)`.
-- Update `Scanner.scan`: Assign the signature for the `root_node` during initialization.
-- Update `Scanner.select_node`: Use the cached `child.signature` instead of calling the engine's matching logic.
+## File Operations
 
-### 2.2 Matching Optimization (`src/fsgc/engine.py`)
-- Refactor `HeuristicEngine` to pre-identify "simple" signatures (e.g., those matching only by exact directory name like `**/node_modules`).
-- Use `node.path.name == pattern` as a fast-path for these simple signatures, falling back to `node.path.match(pattern)` only for complex globs.
-- Ensure `apply_scoring` respects the cached `node.signature`.
+### `src/fsgc/scanner.py`
+- **Modify `DirectoryNode`**:
+  - Add `parent: "DirectoryNode | None" = field(default=None, repr=False)`.
+  - Add internal counters: `_sum_child_confirmed_size`, `_sum_child_estimated_size`, `_sum_child_completion_ratio`, and `_unexplored_children_count`.
+  - Remove `dirty` flag and `_metadata` cache.
+- **Implement Methods**:
+  - `update_metadata()`: Calculates local totals and calls `parent.propagate_child_update()` if values changed.
+  - `propagate_child_update(delta_confirmed, delta_estimated, delta_ratio, became_fully_explored, atime, mtime)`: Updates internal counters and triggers `update_metadata()`.
+- **Refactor `Scanner`**:
+  - `_process_directory`: Call `node.update_metadata()` once after all entries are processed.
+  - `mcts_iteration`: Remove manual `dirty` and `calculate_metadata` calls.
+  - `scan()`: Yield the root node directly without calling `calculate_metadata`.
 
-### 2.3 UI Throttling (`src/fsgc/__main__.py`)
-- Implement time-based throttling in the `_do_scan` live update loop.
-- Limit `live.update` and tree summarization to a maximum of **4 times per second** (250ms minimum interval).
+## Step-by-Step Execution
 
-## 3. Implementation Phases
+1.  **Step 1: Data Model Update**: Add `parent` and tracking counters to `DirectoryNode`. Use `field(repr=False)` for `parent` to avoid recursion in logs.
+2.  **Step 2: Propagation Logic**: Implement the delta-based update flow. When a node's size increases by $X$, it informs the parent to increase its total by $X$.
+3.  **Step 3: State Propagation**: When a child's `_unexplored_children_count` reaches 0, it signals the parent to decrement its own count. If the parent hits 0 and is processed, it becomes `FINISHED`.
+4.  **Step 4: Scanner Integration**: Update the worker and MCTS logic to trigger these updates only when a node's primary state (files size or processing status) changes.
+5.  **Step 5: Compatibility Layer**: Keep `calculate_metadata()` as a simple getter for the existing UI and aggregator code to prevent widespread breakage.
 
-1.  **Phase 1: Node Caching**: Modify `DirectoryNode` and `Scanner` to store and populate signatures.
-2.  **Phase 2: Selection Refactor**: Update `select_node` to utilize the cache.
-3.  **Phase 3: Engine Optimization**: Implement the matching fast-path in `HeuristicEngine`.
-4.  **Phase 4: UI Polish**: Add the 250ms throttle to the CLI `scan` command.
-
-## 4. Verification Plan
-- **Correctness**: Run `make test` to ensure matching and MCTS logic remain sound.
-- **Performance**: Profile a scan on a wide directory structure (e.g., a node project or large repo) to confirm CPU usage reduction.
-- **UI Responsiveness**: Verify the TUI updates smoothly at the throttled rate without jittering.
+## Testing Strategy
+- **Performance Regression**: Verify that `Scanner.scan()` yield times do not increase with directory width.
+- **Metadata Accuracy**: Use `tests/test_scanner.py` to ensure `confirmed_size` and `atime/mtime` still match the filesystem exactly.
+- **MCTS Stability**: Ensure nodes are still correctly marked as `FINISHED` and `.gctrail` files are generated upon completion.

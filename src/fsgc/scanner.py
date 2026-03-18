@@ -308,7 +308,7 @@ class Scanner:
         await self._process_directory(root_node)
 
         queue: asyncio.Queue[DirectoryNode] = asyncio.Queue()
-        
+
         # Seed the queue with top-level subdirectories
         for child in root_node.children.values():
             queue.put_nowait(child)
@@ -318,15 +318,17 @@ class Scanner:
                 node = await queue.get()
                 iterations = 0
                 max_iterations = 50
-                
+
                 try:
                     while not node.is_fully_explored and iterations < max_iterations:
                         await self.mcts_iteration(node)
                         iterations += 1
-                        
+
                     if not node.is_fully_explored:
                         # Find unexplored children to partition the work
-                        unexplored_children = [c for c in node.children.values() if not c.is_fully_explored]
+                        unexplored_children = [
+                            c for c in node.children.values() if not c.is_fully_explored
+                        ]
                         if unexplored_children:
                             for c in unexplored_children:
                                 queue.put_nowait(c)
@@ -342,7 +344,6 @@ class Scanner:
         worker_tasks = [asyncio.create_task(worker()) for _ in range(self.max_concurrency)]
         queue_task = asyncio.create_task(queue.join())
 
-        last_yield_time = 0.0
         yield_interval = 0.1  # 100ms
 
         try:
@@ -407,7 +408,8 @@ class Scanner:
                         node.atime = max(node.atime, stat.st_atime)
                         node.mtime = max(node.mtime, stat.st_mtime)
                         # Collect evidence (Only if potentially relevant to sentinels)
-                        # Optimization: once we have some evidence, we don't need to collect more for this dir.
+                        # Optimization: once we have some evidence, we don't need to collect
+                        # more for this dir.
                         if not node.file_evidence and self.engine:
                             if self.engine.is_relevant_evidence(entry_name):
                                 node.file_evidence.add(entry_name)

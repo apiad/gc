@@ -16,6 +16,7 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
+- [/] Implement incremental metadata propagation for wide-tree performance. (@user) (See plan: plans/fix-scanner-performance.md)
 
 ---
 
@@ -27,7 +28,6 @@ Put done tasks into the Archive.
 - [x] Refine garbage collection signatures for OS, applications, and build systems. (2026-03-18) (See research/garbage-collection-signatures/)
 - [x] Implement graceful interruption of the scanning phase with `Ctrl+C`. (2026-03-18) (See plan: plans/graceful-interrupt-scan.md)
 - [x] Implement content-based sentinel verification for refined signature matching. (2026-03-18) (See plan: plans/implement-sentinel-verification.md)
-- [x] Fix scanner performance bottleneck (Signature Caching & UI Throttling). (2026-03-18) (See plan: plans/fix-scanner-performance.md)
 - [x] Redesign scan heuristics using two-tiered selection (Trail + Signatures). (2026-03-18) (See plan: plans/redesign-scan-heuristics.md)
 - [x] Implement Canonical MCTS search strategy. (2026-03-18) (See plan: plans/implement-canonical-mcts.md)
 - [x] Implement "Incremental Refinement" scanning animation. (2026-03-16) (See plan: plans/incremental-scan.md)
