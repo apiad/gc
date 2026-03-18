@@ -367,13 +367,17 @@ class Scanner:
         worker_tasks = [asyncio.create_task(worker()) for _ in range(self.max_concurrency)]
         queue_task = asyncio.create_task(queue.join())
 
+        import time
+        last_yield_time = time.monotonic()
         yield_interval = 0.1  # 100ms
 
         try:
             while not queue_task.done():
                 done, pending = await asyncio.wait([queue_task], timeout=yield_interval)
-                if not done:
+                current_time = time.monotonic()
+                if current_time - last_yield_time >= yield_interval:
                     yield root_node
+                    last_yield_time = current_time
         finally:
             for w in worker_tasks:
                 w.cancel()
