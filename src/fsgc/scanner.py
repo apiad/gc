@@ -77,9 +77,6 @@ class DirectoryNode:
     _sum_child_completion_ratio: float = 0.0
     _unexplored_children_count: int = 0
 
-    dirty: bool = True
-    _metadata: Any = None
-
     def __hash__(self) -> int:
         return hash(str(self.path))
 
@@ -121,8 +118,10 @@ class DirectoryNode:
         if not self.is_fully_explored:
             if self.is_processed and self._unexplored_children_count == 0:
                 self.is_fully_explored = True
-                self.state = ScanState.FINISHED
                 became_fully_explored = True
+        
+        if self.is_fully_explored:
+            self.state = ScanState.FINISHED
         
         # 4. Propagate if parent exists
         if self.parent:
@@ -167,73 +166,16 @@ class DirectoryNode:
 
     def calculate_metadata(self) -> tuple[int, float, float, bool, float]:
         """
-        Recursively calculate total size, most recent timestamps, and completion progress.
+        Returns cached metadata fields (updated via incremental propagation).
         Returns (size, atime, mtime, is_complete, completion_ratio).
         """
-        if not self.dirty:
-            return self._metadata
-
-        # Confirmed size is files in this dir + confirmed sizes of children
-        confirmed_size = self.files_size
-
-        # Estimated size starts with confirmed size, then adds estimates for unexplored branches
-        estimated_size = self.files_size
-
-        max_atime = self.atime
-        max_mtime = self.mtime
-
-        # A node is fully explored ONLY if it is processed AND all its children are fully explored
-        all_children_fully_explored = self.is_processed
-
-        total_ratio = 1.0 if self.is_processed else 0.0
-
-        for child in self.children.values():
-            c_size, c_atime, c_mtime, c_complete, c_ratio = child.calculate_metadata()
-
-            # If child is fully explored, its size is confirmed
-            if c_complete:
-                confirmed_size += c_size
-                estimated_size += c_size
-            else:
-                # If not complete, use its estimated size for our estimate
-                estimated_size += child.estimated_size
-                # And its confirmed size for our confirmed
-                confirmed_size += child.confirmed_size
-
-            max_atime = max(max_atime, c_atime)
-            max_mtime = max(max_mtime, c_mtime)
-            all_children_fully_explored = all_children_fully_explored and child.is_fully_explored
-            total_ratio += c_ratio
-
-        # Update node fields
-        self.confirmed_size = confirmed_size
-        self.size = confirmed_size  # For UI compatibility
-
-        # Estimated size uses cache as a fallback if we haven't explored much
-        self.estimated_size = max(estimated_size, self.cached_size)
-
-        self.atime = max_atime
-        self.mtime = max_mtime
-
-        # Completion ratio: average of self + all discovered children
-        items_count = len(self.children) + 1
-        self.completion_ratio = total_ratio / items_count
-
-        if all_children_fully_explored:
-            self.is_fully_explored = True
-            self.state = ScanState.FINISHED
-
-        self._metadata = (
+        return (
             self.confirmed_size,
             self.atime,
             self.mtime,
             self.is_fully_explored,
             self.completion_ratio,
         )
-
-        self.dirty = False
-
-        return self._metadata
 
 
 class Scanner:
@@ -348,7 +290,6 @@ class Scanner:
 
             # Mark as exploring
             current.state = ScanState.EXPLORING
-            current.dirty = True
 
             # 2. Termination Check
             if not current.children or current.is_fully_explored:
@@ -364,15 +305,15 @@ class Scanner:
             path.append(current)
 
         # 4. Backpropagation (State & Trail Persistence)
-        # Recalculate metadata from bottom up to propagate FINISHED state
+        # Propagate visits and check for FINISHED state
         for node in reversed(path):
             node.visits += 1
-            node.dirty = True
-            is_new_finished = not node.is_fully_explored
-            node.calculate_metadata()
+            old_fully_explored = node.is_fully_explored
+            
+            node.update_metadata()
 
             # If the node just became fully explored, persist its trail
-            if is_new_finished and node.is_fully_explored:
+            if not old_fully_explored and node.is_fully_explored:
                 await self.persist_trail(node)
 
     async def scan(self) -> AsyncGenerator[DirectoryNode, None]:
@@ -432,15 +373,11 @@ class Scanner:
             while not queue_task.done():
                 done, pending = await asyncio.wait([queue_task], timeout=yield_interval)
                 if not done:
-                    root_node.dirty = True
-                    root_node.calculate_metadata()
                     yield root_node
         finally:
             for w in worker_tasks:
                 w.cancel()
 
-        root_node.dirty = True
-        root_node.calculate_metadata()
         yield root_node
 
     async def _process_directory(self, node: DirectoryNode) -> None:
@@ -513,6 +450,9 @@ class Scanner:
                 node.signature = await asyncio.to_thread(
                     self.engine.get_matching_signature, node, self.signatures
                 )
+            
+            # Initial metadata sync
+            node.update_metadata()
 
         except (PermissionError, FileNotFoundError) as e:
             logger.debug(f"Skipping {node.path}: {e}")
