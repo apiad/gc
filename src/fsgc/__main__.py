@@ -73,21 +73,27 @@ def _do_scan(
 
     async def run_scan() -> DirectoryNode | None:
         root_node = None
+        last_update_time = 0.0
+        update_interval = 0.25  # 250ms (4Hz refresh)
 
         try:
             with Live(console=console, refresh_per_second=10) as live:
                 async for snapshot in scanner.scan():
                     root_node = snapshot
-                    # Phase 2: Hierarchy Summary (Traditional Scan view)
-                    summary = summarize_tree(
-                        root_node,
-                        max_depth=depth,
-                        min_percent=min_percent,
-                        max_children=limit,
-                        min_size=min_size,
-                    )
-                    tree = render_summary_tree(summary)
-                    live.update(tree)
+                    current_time = asyncio.get_event_loop().time()
+
+                    if current_time - last_update_time >= update_interval:
+                        # Phase 2: Hierarchy Summary (Traditional Scan view)
+                        summary = summarize_tree(
+                            root_node,
+                            max_depth=depth,
+                            min_percent=min_percent,
+                            max_children=limit,
+                            min_size=min_size,
+                        )
+                        tree = render_summary_tree(summary)
+                        live.update(tree)
+                        last_update_time = current_time
         except KeyboardInterrupt:
             console.print("[bold red]Scanning halted before finishing...\n")
 
