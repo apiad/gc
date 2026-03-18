@@ -84,7 +84,7 @@ def scan(
     engine = HeuristicEngine(age_threshold_days=age_threshold)
 
     # Phase 1: Scan and build tree (Live Updates)
-    scanner = Scanner(path, engine=engine)
+    scanner = Scanner(path, engine=engine, signatures=sig_manager.signatures)
 
     async def run_scan() -> DirectoryNode | None:
         root_node = None
