@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pytest
 
+from fsgc.config import Signature
+from fsgc.engine import HeuristicEngine
 from fsgc.scanner import DirectoryNode, Scanner
 
 
@@ -34,3 +36,28 @@ async def test_scanner_collects_evidence(tmp_path):
     assert "Makefile" in node.file_evidence
     # Subdirectory names should NOT be in file_evidence based on plan
     assert "sub" not in node.file_evidence
+
+
+@pytest.mark.asyncio
+async def test_scanner_filters_evidence_with_engine(tmp_path):
+    # Create a directory with some files
+    test_dir = tmp_path / "project"
+    test_dir.mkdir()
+    (test_dir / "relevant.o").touch()
+    (test_dir / "irrelevant.txt").touch()
+    (test_dir / "package.json").touch()
+
+    sig = Signature(name="test", pattern="**/project", priority=1.0, sentinels=["*.o", "package.json"])
+    engine = HeuristicEngine()
+    # Initialize engine with signatures
+    engine.get_matching_signature(DirectoryNode(path=test_dir), [sig])
+
+    scanner = Scanner(root=tmp_path, engine=engine, signatures=[sig])
+    node = DirectoryNode(path=test_dir)
+    await scanner._process_directory(node)
+
+    assert "relevant.o" in node.file_evidence
+    assert ".o" in node.file_evidence
+    assert "package.json" in node.file_evidence
+    assert "irrelevant.txt" not in node.file_evidence
+    assert ".txt" not in node.file_evidence

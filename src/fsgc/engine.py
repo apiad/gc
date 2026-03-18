@@ -22,6 +22,8 @@ class HeuristicEngine:
 
         # Caching matchers to avoid redundant pattern analysis
         self._matchers: list[tuple[bool, str, Signature]] | None = None
+        self._exact_sentinels: set[str] = set()
+        self._glob_sentinels: list[str] = []
 
     def _get_matchers(self, signatures: list[Signature]) -> list[tuple[bool, str, Signature]]:
         """
@@ -42,7 +44,27 @@ class HeuristicEngine:
                     match_pattern = base_pattern
 
             matchers.append((is_simple, match_pattern, sig))
+
+            # Track all sentinels
+            for sentinel in sig.sentinels:
+                if any(c in sentinel for c in "*?[]"):
+                    if sentinel not in self._glob_sentinels:
+                        self._glob_sentinels.append(sentinel)
+                else:
+                    self._exact_sentinels.add(sentinel)
+
         return matchers
+
+    def is_relevant_evidence(self, name: str) -> bool:
+        """
+        Check if a filename or suffix matches any sentinel defined in any signature.
+        """
+        if name in self._exact_sentinels:
+            return True
+        for glob in self._glob_sentinels:
+            if fnmatch.fnmatch(name, glob):
+                return True
+        return False
 
     def _verify_sentinels(self, node: DirectoryNode, sig: Signature) -> bool:
         if not sig.sentinels:

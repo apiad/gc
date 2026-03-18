@@ -406,11 +406,18 @@ class Scanner:
                         node.files_size += stat.st_size
                         node.atime = max(node.atime, stat.st_atime)
                         node.mtime = max(node.mtime, stat.st_mtime)
-                        # Collect evidence
-                        node.file_evidence.add(entry_name)
-                        path_entry = Path(entry_name)
-                        if path_entry.suffix:
-                            node.file_evidence.add(path_entry.suffix)
+                        # Collect evidence (Only if potentially relevant to sentinels)
+                        if self.engine:
+                            if self.engine.is_relevant_evidence(entry_name):
+                                node.file_evidence.add(entry_name)
+                            path_entry = Path(entry_name)
+                            if path_entry.suffix and self.engine.is_relevant_evidence(path_entry.suffix):
+                                node.file_evidence.add(path_entry.suffix)
+                        else:
+                            node.file_evidence.add(entry_name)
+                            path_entry = Path(entry_name)
+                            if path_entry.suffix:
+                                node.file_evidence.add(path_entry.suffix)
 
             node.state = ScanState.ENQUEUED
             node.is_processed = True
