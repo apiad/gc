@@ -55,6 +55,9 @@ def sweep(selected_groups: list[dict[str, Any]], dry_run: bool = True) -> None:
     console.print(f"\n[bold green]{status} reclaimed {format_size(total_reclaimed)}![/]")
 
 
+DEFAULT_WORKERS = min(32, (os.cpu_count() or 1) * 4)
+
+
 def _do_scan(
     path: Path,
     dry_run: bool,
@@ -202,9 +205,9 @@ def scan(
             "--workers",
             "-w",
             help="Number of concurrent workers.",
-            show_default=f"min(32, (cpu_count or 1) * 4) [current: {min(32, (os.cpu_count() or 1) * 4)}]",
+            show_default=f"dynamic [current: {DEFAULT_WORKERS}]",
         ),
-    ] = min(32, (os.cpu_count() or 1) * 4),
+    ] = DEFAULT_WORKERS,
 ) -> None:
     """
     Scans a directory for garbage and proposes collection.

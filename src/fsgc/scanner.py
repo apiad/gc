@@ -368,6 +368,7 @@ class Scanner:
         queue_task = asyncio.create_task(queue.join())
 
         import time
+
         last_yield_time = time.monotonic()
         yield_interval = 0.1  # 100ms
 
@@ -391,6 +392,7 @@ class Scanner:
         try:
             # 1. Trail Logic (Fast-path if hash matches)
             trail_path = node.path / ".gctrail"
+
             # Optimization: Wrap trail existence check and reading into a single thread call
             def load_trail(p: Path) -> GCTrail | None:
                 if p.exists():
