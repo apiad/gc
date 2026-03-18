@@ -20,7 +20,7 @@ async def test_mcts_iteration(tmp_path):
 
     # Run one iteration
     # It should expand root, create dir1_node, and simulate dir1
-    await scanner.mcts_iteration(root_node, signatures=[])
+    await scanner.mcts_iteration(root_node)
 
     assert "dir1" in root_node.children
     dir1_node = root_node.children["dir1"]
@@ -30,4 +30,3 @@ async def test_mcts_iteration(tmp_path):
     # Root stats should also be updated
     root_node.calculate_metadata()
     assert root_node.size == dir1_node.files_size
-

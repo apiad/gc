@@ -37,7 +37,7 @@ def test_scanner_builds_tree_with_metadata(tmp_path: Path) -> None:
 
     async def get_root():
         root = None
-        async for snapshot in scanner.scan(signatures=[]):
+        async for snapshot in scanner.scan():
             root = snapshot
         return root
 
