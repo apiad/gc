@@ -7,6 +7,7 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any
 
+from fsgc.config import Signature
 from fsgc.trail import GCTrail, TopSubdirectory
 
 logger = logging.getLogger(__name__)
@@ -169,7 +170,7 @@ class Scanner:
         "obj": 30,
     }
 
-    def __init__(self, root: Path, stay_on_mount: bool = True, engine: "Any" = None) -> None:
+    def __init__(self, root: Path, stay_on_mount: bool = True, engine: "Any" = None, signatures: list[Signature] | None = None) -> None:
         self.root = root.resolve()
         self.stay_on_mount = stay_on_mount
         self.root_dev = self._get_dev(self.root)
@@ -177,6 +178,7 @@ class Scanner:
         self.visited: set[str] = set()
         self.path_to_node: dict[Path, DirectoryNode] = {}
         self.engine = engine
+        self.signatures = signatures or []
 
     def _get_dev(self, path: Path) -> int:
         try:
@@ -186,13 +188,11 @@ class Scanner:
 
     def select_node(self, node: DirectoryNode) -> DirectoryNode | None:
         """
-        Select the best child node using a PUCT-like formula.
-        1. Prioritize nodes with 0 visits.
-        2. Score = (R/T) + C * P * sqrt(N_parent) / (1 + N)
+        Select the most promising child node using a two-tiered heuristic:
+        1. Tier 1: Historical data from .gctrail (top_subdirs).
+        2. Tier 2: Preconfigured folder patterns with priorities.
+        Fallback: Largest current estimated_size.
         """
-        if not node.children:
-            return None
-
         # Filter out fully explored children
         available_children = [c for c in node.children.values() if not c.is_fully_explored]
 
@@ -201,12 +201,31 @@ class Scanner:
             node.state = ScanState.FINISHED
             return None
 
-        # 1. Prioritize unvisited nodes
-        # for child in available_children:
-        #     if child.visits == 0:
-        #         return child
+        # Tier 1: Trail Data
+        if node.top_subdirs:
+            # Create a lookup for children that match trail names
+            trail_names = {sub.name: sub.size for sub in node.top_subdirs}
+            tier1_candidates = [c for c in available_children if c.path.name in trail_names]
+            if tier1_candidates:
+                # Return the candidate that was historically largest
+                return max(tier1_candidates, key=lambda x: trail_names.get(x.path.name, 0))
 
-        best_score = -float("inf")
+        # Tier 2: Signatures
+        if self.engine and self.signatures:
+            best_priority = -1.0
+            best_tier2 = None
+            for child in available_children:
+                # Use engine to match signature
+                sig = self.engine.get_matching_signature(child, self.signatures)
+                if sig and sig.priority > best_priority:
+                    best_priority = sig.priority
+                    best_tier2 = child
+            
+            if best_tier2:
+                return best_tier2
+
+        # Fallback: Greedy largest estimated size
+        best_score = -1.0
         best_child = None
 
         for child in available_children:

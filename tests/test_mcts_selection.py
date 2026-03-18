@@ -21,20 +21,40 @@ def test_mcts_selection_prioritizes_larger_estimated_size():
     assert selected == child2
 
 
-def test_mcts_selection_skips_fully_explored():
+from fsgc.trail import TopSubdirectory
+from fsgc.config import Signature
+
+def test_mcts_selection_tier1_trail():
     scanner = Scanner(Path("mock_dir"))
     root = DirectoryNode(path=Path("mock_dir"))
-
+    
     child1 = DirectoryNode(path=Path("mock_dir/1"))
     child2 = DirectoryNode(path=Path("mock_dir/2"))
-
     root.add_child("1", child1)
     root.add_child("2", child2)
+    
+    # Trail says child2 was larger
+    root.top_subdirs = [TopSubdirectory(name="2", size=1000)]
+    
+    selected = scanner.select_node(root)
+    assert selected == child2
 
-    # child1 is larger but fully explored
-    child1.estimated_size = 1000
-    child1.is_fully_explored = True
-    child2.estimated_size = 500
+from fsgc.engine import HeuristicEngine
 
+def test_mcts_selection_tier2_signatures():
+    # Setup scanner with signatures
+    sigs = [
+        Signature(name="High", pattern="**/high/", priority=0.9),
+        Signature(name="Low", pattern="**/low/", priority=0.1)
+    ]
+    engine = HeuristicEngine()
+    scanner = Scanner(Path("mock_dir"), engine=engine, signatures=sigs)
+    root = DirectoryNode(path=Path("mock_dir"))
+    
+    child1 = DirectoryNode(path=Path("mock_dir/low/"))
+    child2 = DirectoryNode(path=Path("mock_dir/high/"))
+    root.add_child("low", child1)
+    root.add_child("high", child2)
+    
     selected = scanner.select_node(root)
     assert selected == child2
