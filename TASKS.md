@@ -16,7 +16,7 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
-- [ ] Refine garbage collection signatures for OS, applications, and build systems. (See research/garbage-collection-signatures/)
+- [/] Refine garbage collection signatures for OS, applications, and build systems (@apiad). (See research/garbage-collection-signatures/)
 
 ---
 
