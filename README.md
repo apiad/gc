@@ -2,13 +2,13 @@
 
 <div align="center">
 
-[![Release](https://img.shields.io/badge/Release-v0.2.0-blue.svg?style=for-the-badge)](https://github.com/apiad/starter/releases)
-[![License](https://img.shields.io/github/license/apiad/starter?style=for-the-badge&color=success)](LICENSE)
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=for-the-badge)](https://github.com/apiad/starter/graphs/commit-activity)
+[![Release](https://img.shields.io/badge/Release-v0.3.0-blue.svg?style=for-the-badge)](https://github.com/apiad/gc/releases)
+[![License](https://img.shields.io/github/license/apiad/gc?style=for-the-badge&color=success)](LICENSE)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=for-the-badge)](https://github.com/apiad/gc/graphs/commit-activity)
 
 **Clean your filesystem with precision.**
 
-*A Python-based CLI utility that performs high-performance filesystem scanning to identify space-intensive directories and applies a heuristic scoring model to suggest data collection.*
+*A Python-based CLI utility that performs high-performance filesystem scanning using MCTS-informed search to identify space-intensive directories and suggests garbage collection based on intelligent heuristics.*
 
 </div>
 
@@ -16,10 +16,20 @@
 
 ## 🚀 Getting Started
 
-The `gc` tool is built with modern Python tooling (`uv`).
+The `fsgc` tool is built with modern Python tooling (`uv`).
 
 ### Installation
 
+For users (recommended):
+```bash
+uvx fsgc
+```
+Or via pipx:
+```bash
+pipx install fsgc
+```
+
+For developers:
 ```bash
 # Clone the repository
 git clone https://github.com/apiad/gc.git
@@ -31,28 +41,29 @@ uv sync
 
 ### Usage
 
-By default, running `gc` will scan the current directory and provide a hierarchical size summary:
+By default, running `fsgc` will perform a stochastic MCTS-informed scan of the current directory:
 
 ```bash
-uv run gc .
+fsgc scan .
 ```
 
 #### Options:
-- `--depth` / `-d`: Maximum display depth (default: 3).
-- `--min-percent` / `-p`: Minimum size percentage of parent to show child (default: 0.05).
-- `--limit` / `-l`: Maximum number of children to list individually (default: 4).
-- `--min-size`: Minimum size in bytes to report.
+- `--workers` / `-w`: Number of concurrent workers (default: 8).
+- `--depth` / `-d`: Maximum display depth (default: 2).
+- `--min-percent` / `-p`: Minimum size percentage of parent to show child (default: 0.01).
+- `--limit` / `-l`: Maximum number of children to list individually (default: 10).
+- `--age` / `-a`: Age threshold in days for recency heuristic (default: 90).
 - `--dry-run`: Show what would be collected without deleting.
 
 ---
 
 ## 🧠 The Core Philosophy
 
-`gc` is more than a simple `du` clone. It uses a **Pipe-and-Filter** architecture to turn raw metadata into actionable deletion proposals:
+`fsgc` is "The Architect in the Machine." It uses a **Stochastic Search** architecture to turn raw metadata into actionable deletion proposals:
 
-1.  **Scanner (The Collector):** High-performance BFS scanning using `os.scandir`.
-2.  **Heuristic Engine (The Mark Phase):** (Coming Soon) Scores nodes based on patterns, recency, and regenerability.
-3.  **Aggregator (The Sweep Phase):** Bubbles up sizes and scores to reduce CLI noise.
+1.  **Scanner (The Playout):** Informed MCTS scanning using `GCTrail` history and known signatures.
+2.  **Heuristic Engine (The Mark Phase):** Scores nodes based on patterns, recency, and sentinel verification (e.g., verifying `package.json` for `node_modules`).
+3.  **Aggregator (The Sweep Phase):** Groups garbage into logical collections for interactive selection.
 
 ---
 
