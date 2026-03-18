@@ -16,6 +16,7 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
+- [ ] Accelerate the scanner using a bounded worker pool and `asyncio.to_thread` for parallel MCTS exploration. (See plan: plans/parallel-scanner.md)
 
 ---
 
