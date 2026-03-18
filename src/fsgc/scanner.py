@@ -69,6 +69,14 @@ class DirectoryNode:
     signature: Signature | None = None
     file_evidence: set[str] = field(default_factory=set)
 
+    parent: "DirectoryNode | None" = field(default=None, repr=False)
+    
+    # Internal counters for incremental propagation
+    _sum_child_confirmed_size: int = 0
+    _sum_child_estimated_size: int = 0
+    _sum_child_completion_ratio: float = 0.0
+    _unexplored_children_count: int = 0
+
     dirty: bool = True
     _metadata: Any = None
 
@@ -82,6 +90,9 @@ class DirectoryNode:
 
     def add_child(self, name: str, node: "DirectoryNode") -> None:
         self.children[name] = node
+        node.parent = self
+        if not node.is_fully_explored:
+            self._unexplored_children_count += 1
 
     def calculate_metadata(self) -> tuple[int, float, float, bool, float]:
         """

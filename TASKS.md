@@ -16,7 +16,7 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
-- [/] Implement incremental metadata propagation for wide-tree performance. (@user) (See plan: plans/fix-scanner-performance.md)
+- [/] Implement incremental metadata propagation for wide-tree performance. (@apiad) (See plan: plans/fix-scanner-performance.md)
 
 ---
 
