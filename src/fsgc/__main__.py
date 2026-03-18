@@ -61,7 +61,7 @@ def scan(
     depth: Annotated[int, typer.Option("--depth", "-d", help="Maximum display depth.")] = 2,
     min_percent: Annotated[
         float, typer.Option("--min-percent", "-p", help="Minimum size percentage of parent.")
-    ] = 0.05,
+    ] = 0.01,
     limit: Annotated[
         int, typer.Option("--limit", "-l", help="Maximum number of children to list individually.")
     ] = 10,
@@ -76,9 +76,7 @@ def scan(
     """
     path = path.resolve()
     console.print(f"[bold blue]Scanning[/] {path}...")
-
-    path = path.resolve()
-    console.print(f"[bold blue]Scanning[/] {path} using Informed MCTS...")
+    console.print(f"[dim blue]Press Ctrl+C to break scanning at any time...\n")
 
     # Phase 0: Initialize Engine and Signatures
     config_path = Path("config/signatures.yaml")
@@ -88,29 +86,30 @@ def scan(
     # Phase 1: Scan and build tree (Live Updates)
     scanner = Scanner(path, engine=engine)
 
-    async def run_scan() -> DirectoryNode:
+    async def run_scan() -> DirectoryNode | None:
         root_node = None
-        with Live(console=console, refresh_per_second=10) as live:
-            async for snapshot in scanner.scan(signatures=sig_manager.signatures):
-                root_node = snapshot
-                # Phase 2: Hierarchy Summary (Traditional Scan view)
-                summary = summarize_tree(
-                    root_node,
-                    max_depth=depth,
-                    min_percent=min_percent,
-                    max_children=limit,
-                    min_size=min_size,
-                )
-                tree = render_summary_tree(summary)
-                live.update(tree)
+
+        try:
+            with Live(console=console, refresh_per_second=10) as live:
+                async for snapshot in scanner.scan(signatures=sig_manager.signatures):
+                    root_node = snapshot
+                    # Phase 2: Hierarchy Summary (Traditional Scan view)
+                    summary = summarize_tree(
+                        root_node,
+                        max_depth=depth,
+                        min_percent=min_percent,
+                        max_children=limit,
+                        min_size=min_size,
+                    )
+                    tree = render_summary_tree(summary)
+                    live.update(tree)
+        except KeyboardInterrupt:
+            console.print(f"[bold red]Scanning halted before finishing...\n")
+
         return root_node
 
     root_node = asyncio.run(run_scan())
     console.print(f"\nTotal size: [bold]{format_size(root_node.size)}[/].")
-
-    # Phase 1.5: Persist trails
-    with console.status("[bold green]Persisting directory trails...[/]"):
-        asyncio.run(scanner.persist_trails(root_node))
 
     # Phase 3: Mark (Scoring)
     with console.status("[bold yellow]Aggregating heuristic scores...[/]"):
@@ -144,7 +143,7 @@ def scan(
 
 
 @app.command()
-def trail_dump(path: Annotated[Path, typer.Argument(help="Path to the .gctrail file.")]) -> None:
+def trail(path: Annotated[Path, typer.Argument(help="Path to the .gctrail file.")] = Path(".gctrail")) -> None:
     """
     Debug command to dump the contents of a .gctrail binary file.
     """
