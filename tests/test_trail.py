@@ -1,8 +1,6 @@
 import time
-
 import pytest
-
-from fsgc.trail import MAGIC, BigFish, GCTrail
+from fsgc.trail import MAGIC, TopSubdirectory, GCTrail
 
 
 def test_trail_roundtrip():
@@ -15,10 +13,10 @@ def test_trail_roundtrip():
     rec_size = 50 * 1024 * 1024  # 50 MB
     noise_size = 10 * 1024 * 1024  # 10 MB
 
-    big_fish = [
-        BigFish(filename="large_file.iso", size=80 * 1024 * 1024),
-        BigFish(filename="another_one.zip", size=15 * 1024 * 1024),
-        BigFish(filename="truncated_name" * 100, size=1024),  # Test name truncation
+    top_subdirs = [
+        TopSubdirectory(name="node_modules", size=80 * 1024 * 1024),
+        TopSubdirectory(name=".venv", size=15 * 1024 * 1024),
+        TopSubdirectory(name="truncated_name" * 100, size=1024),  # Test name truncation
     ]
 
     trail = GCTrail(
@@ -27,7 +25,7 @@ def test_trail_roundtrip():
         total_size=total_size,
         reconstructible_size=rec_size,
         noise_size=noise_size,
-        big_fish=big_fish,
+        top_subdirs=top_subdirs,
     )
 
     data = trail.to_bytes()
@@ -38,10 +36,10 @@ def test_trail_roundtrip():
     assert new_trail.total_size == total_size
     assert new_trail.reconstructible_size == rec_size
     assert new_trail.noise_size == noise_size
-    assert len(new_trail.big_fish) == 3
-    assert new_trail.big_fish[0].filename == "large_file.iso"
-    assert new_trail.big_fish[0].size == 80 * 1024 * 1024
-    assert len(new_trail.big_fish[2].filename) == 255  # Check truncation
+    assert len(new_trail.top_subdirs) == 3
+    assert new_trail.top_subdirs[0].name == "node_modules"
+    assert new_trail.top_subdirs[0].size == 80 * 1024 * 1024
+    assert len(new_trail.top_subdirs[2].name) == 255  # Check truncation
 
 
 def test_invalid_magic():
@@ -51,7 +49,7 @@ def test_invalid_magic():
 
 def test_unsupported_version():
     with pytest.raises(ValueError, match="Unsupported version"):
-        GCTrail.from_bytes(MAGIC + b"\x02" + b"\x00" * 100)
+        GCTrail.from_bytes(MAGIC + b"\x03" + b"\x00" * 100)
 
 
 def test_stable_structural_hash():

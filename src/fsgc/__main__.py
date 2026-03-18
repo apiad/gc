@@ -165,12 +165,13 @@ def trail(
         console.print(f"  Reconstructible: [bold]{format_size(trail.reconstructible_size)}[/]")
         console.print(f"  Noise: [bold]{format_size(trail.noise_size)}[/]")
 
-        if trail.big_fish:
-            console.print("\n[bold]Big Fish (>10MB):[/]")
-            for fish in trail.big_fish:
-                console.print(f"  - {fish.filename} ({format_size(fish.size)})")
+        if trail.top_subdirs:
+            console.print("\n[bold]Top Subdirectories:[/]")
+            for sub in trail.top_subdirs:
+                console.print(f"- {sub.name}: [green]{format_size(sub.size)}[/]")
+
         else:
-            console.print("\n[italic]No Big Fish found.[/]")
+            console.print("\n[italic]No top subdirectories recorded.[/]")
 
     except Exception as e:
         console.print(f"[red]Error parsing trail file:[/] {e}")

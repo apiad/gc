@@ -7,7 +7,7 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any
 
-from fsgc.trail import BigFish, GCTrail
+from fsgc.trail import GCTrail, TopSubdirectory
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class DirectoryNode:
     atime: float = 0.0  # Most recent access time in this branch
     mtime: float = 0.0  # Most recent modification time in this branch
     state: ScanState = ScanState.NONE
-    big_fish: list[BigFish] = field(default_factory=list)
+    top_subdirs: list[TopSubdirectory] = field(default_factory=list)
     children: dict[str, "DirectoryNode"] = field(default_factory=dict)
     is_dir: bool = True
     # Enhanced Metadata for Incremental Scan
@@ -288,7 +288,7 @@ class Scanner:
                     trail = GCTrail.from_bytes(data)
                     node.cached_size = trail.total_size
                     node.cached_hash = trail.structural_hash
-                    node.big_fish = trail.big_fish
+                    node.top_subdirs = trail.top_subdirs
                     node.estimated_size = trail.total_size
                     # Check for quick verification
                     os.stat(node.path)
@@ -316,12 +316,6 @@ class Scanner:
                         node.files_size += stat.st_size
                         node.atime = max(node.atime, stat.st_atime)
                         node.mtime = max(node.mtime, stat.st_mtime)
-
-                        if stat.st_size > 10 * 1024 * 1024:
-                            node.big_fish.append(BigFish(filename=entry_name, size=stat.st_size))
-
-            node.big_fish.sort(key=lambda x: x.size, reverse=True)
-            node.big_fish = node.big_fish[:10]
 
             node.state = ScanState.ENQUEUED
             node.is_processed = True
@@ -353,14 +347,22 @@ class Scanner:
         """
         # Only persist for verified nodes that meet the size threshold
         if node.state == ScanState.FINISHED and node.size > threshold_mb * 1024 * 1024:
+            # Calculate top 10 subdirectories
+            children = sorted(node.children.values(), key=lambda x: x.size, reverse=True)
+            node.top_subdirs = [
+                TopSubdirectory(name=child.path.name, size=child.size)
+                for child in children[:10]
+            ]
+
             trail = GCTrail(
                 timestamp=node.mtime,
                 structural_hash=GCTrail.calculate_structural_hash(node.mtime, node.entry_count),
                 total_size=node.size,
-                reconstructible_size=0,  # TODO: Calculate based on scores
-                noise_size=node.files_size,
-                big_fish=node.big_fish,
+                reconstructible_size=0,
+                noise_size=0,
+                top_subdirs=node.top_subdirs,
             )
+
             trail_path = node.path / ".gctrail"
             try:
                 trail_path.write_bytes(trail.to_bytes())

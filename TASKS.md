@@ -16,7 +16,7 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
-- [ ] Redesign scan heuristics using two-tiered selection (Trail + Signatures). (See plan: plans/redesign-scan-heuristics.md)
+- [/] Redesign scan heuristics using two-tiered selection (Trail + Signatures) (@apiad). (See plan: plans/redesign-scan-heuristics.md)
 - [ ] Refine garbage collection signatures for OS, applications, and build systems. (See research/garbage-collection-signatures/)
 
 ---
