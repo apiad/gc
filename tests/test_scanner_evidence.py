@@ -6,10 +6,11 @@ from fsgc.scanner import DirectoryNode, Scanner
 
 
 def test_directory_node_file_evidence():
-    node = DirectoryNode(path=Path("/tmp/test"))
+    node = DirectoryNode(path=Path("/mock/test"))
     # This should work once we add the field
     assert hasattr(node, "file_evidence")
     assert isinstance(node.file_evidence, set)
+
 
 @pytest.mark.asyncio
 async def test_scanner_collects_evidence(tmp_path):
@@ -20,12 +21,12 @@ async def test_scanner_collects_evidence(tmp_path):
     (test_dir / "main.o").touch()
     (test_dir / "Makefile").touch()
     (test_dir / "sub").mkdir()
-    
+
     scanner = Scanner(root=tmp_path)
     # We need to process the directory
     node = DirectoryNode(path=test_dir)
     await scanner._process_directory(node)
-    
+
     assert "main.c" in node.file_evidence
     assert ".c" in node.file_evidence
     assert "main.o" in node.file_evidence

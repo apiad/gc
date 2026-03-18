@@ -71,10 +71,10 @@ class HeuristicEngine:
             else:
                 if node.path.match(sig.pattern):
                     matched = True
-            
+
             if matched and self._verify_sentinels(node, sig):
                 return sig
-                
+
         return None
 
     def calculate_score(self, node: DirectoryNode, signature: Signature | None) -> float:
