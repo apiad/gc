@@ -14,19 +14,52 @@ class HeuristicEngine:
         self.now = time.time()
 
         # Weights for the scoring formula
-        self.w_pattern = 0.5
-        self.w_recency = 0.3
-        self.w_priority = 0.2
+        # Adjusted for more aggressive weighting for pattern and priority
+        self.w_pattern = 0.6
+        self.w_priority = 0.3
+        self.w_recency = 0.1
+
+        # Caching matchers to avoid redundant pattern analysis
+        self._matchers: list[tuple[bool, str, Signature]] | None = None
+
+    def _get_matchers(self, signatures: list[Signature]) -> list[tuple[bool, str, Signature]]:
+        """
+        Analyze signatures and return a list of (is_simple, pattern, signature).
+        'is_simple' means it can be matched by exact directory name.
+        """
+        matchers = []
+        for sig in signatures:
+            pattern = sig.pattern
+            # Optimization: if pattern is "**/name" and contains no other globs, it's simple
+            is_simple = False
+            match_pattern = pattern
+            if pattern.startswith("**/"):
+                base_pattern = pattern[3:]
+                # Optimization: if it's a single-level name without globs, it's simple
+                if "/" not in base_pattern and not any(c in base_pattern for c in "*?[]"):
+                    is_simple = True
+                    match_pattern = base_pattern
+
+            matchers.append((is_simple, match_pattern, sig))
+        return matchers
 
     def get_matching_signature(
         self, node: DirectoryNode, signatures: list[Signature]
     ) -> Signature | None:
         """
         Check if a node's path matches any signature pattern.
+        Uses a fast-path for simple name-based patterns.
         """
-        for sig in signatures:
-            if node.path.match(sig.pattern):
-                return sig
+        if self._matchers is None:
+            self._matchers = self._get_matchers(signatures)
+
+        for is_simple, pattern, sig in self._matchers:
+            if is_simple:
+                if node.path.name == pattern:
+                    return sig
+            else:
+                if node.path.match(sig.pattern):
+                    return sig
         return None
 
     def calculate_score(self, node: DirectoryNode, signature: Signature | None) -> float:
@@ -50,12 +83,7 @@ class HeuristicEngine:
 
         r_score = signature.priority
 
-        # More aggressive weighting for pattern and priority
-        w_pattern = 0.6
-        w_priority = 0.3
-        w_recency = 0.1
-
-        score = (w_pattern * p_score) + (w_priority * r_score) + (w_recency * a_score)
+        score = (self.w_pattern * p_score) + (self.w_priority * r_score) + (self.w_recency * a_score)
         return min(1.0, max(0.0, score))
 
     def apply_scoring(
@@ -66,7 +94,8 @@ class HeuristicEngine:
         """
         scores: dict[DirectoryNode, tuple[float, Signature]] = {}
 
-        signature = self.get_matching_signature(node, signatures)
+        # Use cached signature if available
+        signature = node.signature or self.get_matching_signature(node, signatures)
 
         if signature:
             score = self.calculate_score(node, signature)

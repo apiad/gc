@@ -50,3 +50,34 @@ def test_apply_scoring() -> None:
     assert len(scores) == 1
     assert node1 in scores
     assert scores[node1][1] == sig
+
+
+def test_engine_optimized_matching():
+    from unittest.mock import patch
+
+    engine = HeuristicEngine()
+
+    sigs = [
+        Signature(name="Simple", pattern="**/node_modules", priority=0.9),
+        Signature(
+            name="Complex", pattern="**/google-chrome-backup-crashrecovery*", priority=0.5
+        ),
+    ]
+
+    # Test simple name match
+    node1 = DirectoryNode(path=Path("/home/user/node_modules"))
+    with patch.object(Path, "match", wraps=node1.path.match) as mock_match:
+        sig = engine.get_matching_signature(node1, sigs)
+        assert sig is not None
+        assert sig.name == "Simple"
+        # If optimized, match() should NOT be called for node_modules
+        assert mock_match.call_count == 0
+
+    # Test complex glob match
+    node2 = DirectoryNode(path=Path("/home/user/google-chrome-backup-crashrecovery-123"))
+    with patch.object(Path, "match", wraps=node2.path.match) as mock_match:
+        sig = engine.get_matching_signature(node2, sigs)
+        assert sig is not None
+        assert sig.name == "Complex"
+        # Complex patterns still need match()
+        assert mock_match.call_count > 0
