@@ -67,6 +67,7 @@ class DirectoryNode:
     is_fully_explored: bool = False
     heuristic_score: float = 0.0
     signature: Signature | None = None
+    file_evidence: set[str] = field(default_factory=set)
 
     dirty: bool = True
     _metadata: Any = None
@@ -364,9 +365,18 @@ class Scanner:
                         node.files_size += stat.st_size
                         node.atime = max(node.atime, stat.st_atime)
                         node.mtime = max(node.mtime, stat.st_mtime)
+                        # Collect evidence
+                        node.file_evidence.add(entry_name)
+                        path_entry = Path(entry_name)
+                        if path_entry.suffix:
+                            node.file_evidence.add(path_entry.suffix)
 
             node.state = ScanState.ENQUEUED
             node.is_processed = True
+
+            # Re-match signature after evidence collection
+            if self.engine:
+                node.signature = self.engine.get_matching_signature(node, self.signatures)
 
         except (PermissionError, FileNotFoundError) as e:
             logger.debug(f"Skipping {node.path}: {e}")
