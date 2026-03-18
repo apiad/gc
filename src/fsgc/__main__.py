@@ -59,6 +59,7 @@ def _do_scan(
     min_percent: float,
     limit: int,
     age_threshold: int,
+    workers: int,
 ) -> None:
     path = path.resolve()
     console.print(f"[bold blue]Scanning[/] {path}...")
@@ -69,7 +70,7 @@ def _do_scan(
     engine = HeuristicEngine(age_threshold_days=age_threshold)
 
     # Phase 1: Scan and build tree (Live Updates)
-    scanner = Scanner(path, engine=engine, signatures=sig_manager.signatures)
+    scanner = Scanner(path, engine=engine, signatures=sig_manager.signatures, max_concurrency=workers)
 
     async def run_scan() -> DirectoryNode | None:
         root_node = None
@@ -164,11 +165,14 @@ def scan(
     age_threshold: Annotated[
         int, typer.Option("--age", "-a", help="Age threshold in days for recency heuristic.")
     ] = 90,
+    workers: Annotated[
+        int, typer.Option("--workers", "-w", help="Number of concurrent workers.")
+    ] = 8,
 ) -> None:
     """
     Scans a directory for garbage and proposes collection.
     """
-    _do_scan(path, dry_run, min_size, depth, min_percent, limit, age_threshold)
+    _do_scan(path, dry_run, min_size, depth, min_percent, limit, age_threshold, workers)
 
 
 def get_inspect_label(path: Path, trail: GCTrail) -> Text:
