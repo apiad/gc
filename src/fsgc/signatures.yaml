@@ -99,3 +99,69 @@ signatures:
   - name: "Thumbnail Cache"
     pattern: "**/.thumbnails"
     priority: 0.8
+
+  # Java / JVM Global Caches
+  - name: "Maven Repository Cache"
+    pattern: "**/.m2/repository"
+    priority: 0.6
+    min_age_days: 30
+  - name: "Gradle Dependency Cache"
+    pattern: "**/.gradle/caches"
+    priority: 0.6
+    min_age_days: 30
+  - name: "Gradle Wrapper Distributions"
+    pattern: "**/.gradle/wrapper/dists"
+    priority: 0.6
+    min_age_days: 30
+
+  # Go
+  - name: "Go Build Cache"
+    pattern: "**/.cache/go-build"
+    priority: 0.7
+    min_age_days: 14
+  - name: "Go Module Cache"
+    pattern: "**/pkg/mod"
+    priority: 0.6
+    min_age_days: 30
+
+  # Additional Node.js
+  - name: "pnpm Virtual Store"
+    pattern: "**/.pnpm-store"
+    priority: 0.6
+    min_age_days: 14
+
+  # Additional ML Frameworks
+  - name: "TensorFlow Hub Cache"
+    pattern: "**/tfhub_modules"
+    priority: 0.5
+    min_age_days: 30
+  - name: "KaggleHub Cache"
+    pattern: "**/.cache/kagglehub"
+    priority: 0.5
+    min_age_days: 30
+
+  # Browsers & Electron Apps
+  - name: "Chrome Cache (Linux)"
+    pattern: "**/.cache/google-chrome"
+    priority: 0.8
+    min_age_days: 14
+  - name: "Chrome Cache (macOS)"
+    pattern: "**/Library/Caches/Google/Chrome"
+    priority: 0.8
+    min_age_days: 14
+  - name: "VS Code Cache (Linux)"
+    pattern: "**/.config/Code/Cache"
+    priority: 0.8
+    min_age_days: 14
+  - name: "VS Code Cache (macOS)"
+    pattern: "**/Library/Application Support/Code/Cache"
+    priority: 0.8
+    min_age_days: 14
+  - name: "Slack Cache (Linux)"
+    pattern: "**/.config/Slack/Cache"
+    priority: 0.8
+    min_age_days: 14
+  - name: "Slack Cache (macOS)"
+    pattern: "**/Library/Application Support/Slack/Cache"
+    priority: 0.8
+    min_age_days: 14
