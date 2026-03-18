@@ -11,6 +11,7 @@ def summarize_tree(
     max_children: int = 4,
     current_depth: int = 0,
     min_size: int = 0,
+    speed: float | None = None,
 ) -> dict[str, Any]:
     """
     Recursively summarize a DirectoryNode tree into a format suitable for TUI rendering.
@@ -24,6 +25,7 @@ def summarize_tree(
         "completion_ratio": node.completion_ratio,
         "is_others": False,
         "children": [],
+        "speed": speed,
     }
 
     if current_depth >= max_depth or not node.children:

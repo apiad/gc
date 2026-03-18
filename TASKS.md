@@ -21,6 +21,7 @@ Put done tasks into the Archive.
 
 ## Archive
 
+- [x] Implement real-time scan speed indicator (MB/s) and final summary statistics. (2026-03-18)
 - [x] Accelerate the scanner using a bounded worker pool and `asyncio.to_thread` for parallel MCTS exploration. (2026-03-18) (See plan: plans/parallel-scanner.md)
 
 - [x] Refine garbage collection signatures for OS, applications, and build systems. (2026-03-18) (See research/garbage-collection-signatures/)

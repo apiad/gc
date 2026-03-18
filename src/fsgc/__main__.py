@@ -1,6 +1,8 @@
 import asyncio
 import datetime
 import shutil
+import time
+from collections import deque
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -15,7 +17,7 @@ from fsgc.config import SignatureManager
 from fsgc.engine import HeuristicEngine
 from fsgc.scanner import DirectoryNode, Scanner
 from fsgc.trail import GCTrail
-from fsgc.ui.formatter import format_size, render_summary_tree
+from fsgc.ui.formatter import format_size, format_speed, render_summary_tree
 from fsgc.ui.prompt import prompt_confirm_action, prompt_for_deletion
 
 app = typer.Typer(name="fsgc", help="Heuristic-based filesystem scanner and garbage collector.")
@@ -76,14 +78,26 @@ def _do_scan(
         root_node = None
         last_update_time = 0.0
         update_interval = 0.1  # 100ms (10Hz refresh)
+        start_time = time.time()
+        # History of (timestamp, confirmed_size) for speed calculation
+        history: deque[tuple[float, int]] = deque(maxlen=100)  # 10s at 10Hz
 
         try:
             with Live(console=console, refresh_per_second=10) as live:
                 async for snapshot in scanner.scan():
                     root_node = snapshot
-                    current_time = asyncio.get_event_loop().time()
+                    current_time = time.time()
+                    history.append((current_time, root_node.confirmed_size))
 
                     if current_time - last_update_time >= update_interval:
+                        # Calculate speed (avg over last 10s if possible, or since start)
+                        speed = 0.0
+                        if len(history) > 1:
+                            dt = history[-1][0] - history[0][0]
+                            ds = history[-1][1] - history[0][1]
+                            if dt > 0:
+                                speed = ds / dt
+
                         # Phase 2: Hierarchy Summary (Traditional Scan view)
                         summary = summarize_tree(
                             root_node,
@@ -91,6 +105,7 @@ def _do_scan(
                             min_percent=min_percent,
                             max_children=limit,
                             min_size=min_size,
+                            speed=speed,
                         )
                         tree = render_summary_tree(summary)
                         live.update(tree)
@@ -103,6 +118,12 @@ def _do_scan(
 
         if root_node:
             root_node.calculate_metadata()
+            duration = time.time() - start_time
+            avg_speed = root_node.confirmed_size / duration if duration > 0 else 0
+            console.print(
+                f"\n[bold green]Scanned {format_size(root_node.confirmed_size)} in {duration:.2f}s "
+                f"(avg {format_speed(avg_speed)})[/]"
+            )
 
         return root_node
 

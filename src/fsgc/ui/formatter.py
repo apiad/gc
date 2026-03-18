@@ -21,6 +21,13 @@ def format_size(size: float) -> str:
     return f"-{formatted}" if is_negative else formatted
 
 
+def format_speed(bytes_per_sec: float) -> str:
+    """
+    Format speed in bytes/sec to human-readable format.
+    """
+    return f"{format_size(bytes_per_sec)}/s"
+
+
 def render_sparkline(ratio: float, length: int = 5) -> Text:
     """
     Render a small sparkline-like progress bar using dots.
@@ -83,6 +90,9 @@ def render_summary_tree(summary: dict[str, Any], total_size: int = 0) -> Tree:
         label.append(format_size(confirmed), style="green")
 
     label.append(f" ({percentage:.1f}%)", style="magenta")
+
+    if summary.get("speed"):
+        label.append(f" [{format_speed(summary['speed'])}]", style="bold yellow")
 
     tree = Tree(label)
 
