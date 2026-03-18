@@ -16,7 +16,7 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
-- [ ] Implement graceful interruption of the scanning phase with `Ctrl+C`. (See plan: plans/graceful-interrupt-scan.md)
+- [/] Implement graceful interruption of the scanning phase with `Ctrl+C` (@apiad). (See plan: plans/graceful-interrupt-scan.md)
 - [ ] Refine garbage collection signatures for OS, applications, and build systems. (See research/garbage-collection-signatures/)
 
 ---
