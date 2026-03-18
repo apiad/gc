@@ -16,6 +16,7 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
+- [ ] Fix scanner performance bottleneck (Signature Caching & UI Throttling). (See plan: plans/fix-scanner-performance.md)
 - [ ] Refine garbage collection signatures for OS, applications, and build systems. (See research/garbage-collection-signatures/)
 
 ---
