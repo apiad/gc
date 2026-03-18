@@ -349,12 +349,14 @@ class Scanner:
             while not queue_task.done():
                 done, pending = await asyncio.wait([queue_task], timeout=yield_interval)
                 if not done:
+                    root_node.dirty = True
                     root_node.calculate_metadata()
                     yield root_node
         finally:
             for w in worker_tasks:
                 w.cancel()
 
+        root_node.dirty = True
         root_node.calculate_metadata()
         yield root_node
 

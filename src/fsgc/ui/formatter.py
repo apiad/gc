@@ -8,13 +8,17 @@ def format_size(size: float) -> str:
     """
     Format size in bytes to human-readable format.
     """
+    is_negative = size < 0
+    size = abs(size)
     for unit in ["B", "KB", "MB", "GB", "TB"]:
         if size < 1024:
-            return f"{size:.2f} {unit}"
+            formatted = f"{size:.2f} {unit}"
+            return f"-{formatted}" if is_negative else formatted
 
         size = size / 1024.0
 
-    return f"{size:.2f} PB"
+    formatted = f"{size:.2f} PB"
+    return f"-{formatted}" if is_negative else formatted
 
 
 def render_sparkline(ratio: float, length: int = 5) -> Text:
