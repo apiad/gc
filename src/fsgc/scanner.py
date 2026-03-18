@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import random
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -195,9 +196,9 @@ class Scanner:
     def select_node(self, node: DirectoryNode) -> DirectoryNode | None:
         """
         Select the most promising child node using a two-tiered heuristic:
-        1. Tier 1: Historical data from .gctrail (top_subdirs).
-        2. Tier 2: Preconfigured folder patterns with priorities.
-        Fallback: Largest current estimated_size.
+        1. Tier 1: Preconfigured folder patterns with priorities (High-value targets).
+        2. Tier 2: Historical data from .gctrail (Historical hotspots).
+        Fallback: Greedy largest estimated size, prioritizing unvisited.
         """
         # Filter out fully explored children
         available_children = [c for c in node.children.values() if not c.is_fully_explored]
@@ -207,30 +208,34 @@ class Scanner:
             node.state = ScanState.FINISHED
             return None
 
-        # Tier 1: Trail Data
-        if node.top_subdirs:
-            # Create a lookup for children that match trail names
-            trail_names = {sub.name: sub.size for sub in node.top_subdirs}
-            tier1_candidates = [c for c in available_children if c.path.name in trail_names]
-            if tier1_candidates:
-                # Return the candidate that was historically largest
-                return max(tier1_candidates, key=lambda x: trail_names.get(x.path.name, 0))
-
-        # Tier 2: Signatures
+        # Tier 1: Signatures (Known Garbage Patterns)
         if self.engine and self.signatures:
             best_priority = -1.0
-            best_tier2 = None
+            best_tier1 = None
             for child in available_children:
                 # Use engine to match signature
                 sig = self.engine.get_matching_signature(child, self.signatures)
                 if sig and sig.priority > best_priority:
                     best_priority = sig.priority
-                    best_tier2 = child
+                    best_tier1 = child
 
-            if best_tier2:
-                return best_tier2
+            if best_tier1:
+                return best_tier1
 
-        # Fallback: Greedy largest estimated size
+        # Tier 2: Trail Data (Large subdirectories from previous scans)
+        if node.top_subdirs:
+            # Create a lookup for children that match trail names
+            trail_names = {sub.name: sub.size for sub in node.top_subdirs}
+            tier2_candidates = [c for c in available_children if c.path.name in trail_names]
+            if tier2_candidates:
+                # Return the candidate that was historically largest
+                return max(tier2_candidates, key=lambda x: trail_names.get(x.path.name, 0))
+
+        # Fallback: Greedy largest estimated size, prioritizing unvisited
+        unvisited = [c for c in available_children if c.visits == 0]
+        if unvisited:
+            return random.choice(unvisited)  # noqa: S311
+
         best_score = -1.0
         best_child = None
 
@@ -241,7 +246,7 @@ class Scanner:
                 best_score = score
                 best_child = child
 
-        return best_child or list(node.children.values())[0]
+        return best_child or available_children[0]
 
     async def mcts_iteration(self, root: DirectoryNode) -> None:
         """
@@ -274,6 +279,7 @@ class Scanner:
         # 4. Backpropagation (State & Trail Persistence)
         # Recalculate metadata from bottom up to propagate FINISHED state
         for node in reversed(path):
+            node.visits += 1
             node.dirty = True
             is_new_finished = not node.is_fully_explored
             node.calculate_metadata()
