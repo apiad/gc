@@ -1,7 +1,7 @@
 from typing import Any
 
 from fsgc.config import Signature
-from fsgc.scanner import DirectoryNode
+from fsgc.scanner import DirectoryNode, ScanState
 
 
 def summarize_tree(
@@ -36,13 +36,18 @@ def summarize_tree(
     total_child_size_shown = 0
 
     children_list: list[dict[str, Any]] = []
+    other_state = "FINISHED"
+    others = 0
+    other_completion = 1.0
 
     for child in sorted_children:
         # Check if we should keep this child individually
         percentage = child.size / node.size if node.size > 0 else 0
 
         should_keep = (
-            keep_count < max_children and percentage >= min_percent and child.size >= min_size
+            keep_count < max_children
+            and percentage >= min_percent
+            and child.size >= min_size
         )
 
         if should_keep:
@@ -53,18 +58,36 @@ def summarize_tree(
             total_child_size_shown += child.size
             keep_count += 1
         else:
+            others += 1
+
             # This child and all subsequent ones will be grouped in "Others"
-            break
+            if child.state == ScanState.ENQUEUED and other_state == "DONE":
+                other_state = "ENQUEUED"
+            if child.state == ScanState.EXPLORING:
+                other_state = "EXPLORING"
+
+            other_completion = min(other_completion, child.completion_ratio)
 
     # Calculate "Others" size: (Total node size) - (Sizes of shown children)
     others_size = node.size - total_child_size_shown
 
-    if others_size > 0 and (others_size / node.size if node.size > 0 else 0) > 0.001:
+    if others > 0:
         children_list.append(
-            {"name": "Others", "size": others_size, "is_others": True, "children": []}
+            {
+                "name": "Others",
+                "size": others_size,
+                "is_others": True,
+                "children": [],
+                "state": other_state,
+                "completion_ratio": other_completion,
+            }
         )
 
     summary["children"] = children_list
+
+    if node.state == ScanState.EXPLORING:
+        node.state = ScanState.ENQUEUED
+
     return summary
 
 

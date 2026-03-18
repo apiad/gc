@@ -4,15 +4,17 @@ from rich.text import Text
 from rich.tree import Tree
 
 
-def format_size(size: int) -> str:
+def format_size(size: float) -> str:
     """
     Format size in bytes to human-readable format.
     """
     for unit in ["B", "KB", "MB", "GB", "TB"]:
         if size < 1024:
-            return f"{size:.1f} {unit}"
-        size //= 1024
-    return f"{size:.1f} PB"
+            return f"{size:.2f} {unit}"
+
+        size = size / 1024.0
+
+    return f"{size:.2f} PB"
 
 
 def render_sparkline(ratio: float, length: int = 5) -> Text:
@@ -43,9 +45,7 @@ def render_summary_tree(summary: dict[str, Any], total_size: int = 0) -> Tree:
     completion_ratio = summary.get("completion_ratio", 1.0)
 
     name_style = "bold blue"
-    if state == "GHOST":
-        name_style = "dim blue"
-    elif state == "STALE":
+    if state == "ENQUEUED":
         name_style = "dim blue"
     elif state == "EXPLORING":
         name_style = "bold yellow"
@@ -54,20 +54,17 @@ def render_summary_tree(summary: dict[str, Any], total_size: int = 0) -> Tree:
         label.append("...", style="bold yellow")
     else:
         label.append(summary["name"], style=name_style)
-        if state == "STALE":
-            label.append(" ⌛", style="yellow")
-            label.append(" ")
-            label.append(render_sparkline(completion_ratio))
-        elif state == "GHOST":
-            label.append(" 💾", style="dim")
-            label.append(" ")
-            label.append(render_sparkline(completion_ratio))
-        elif state == "EXPLORING":
-            label.append(" 🔍", style="bold yellow")
-        elif state == "VERIFIED":
-            label.append(" ✅", style="green")
-        else:
-            label.append(" ❓", style="dim")
+
+    if state == "ENQUEUED":
+        label.append(" ⌛", style="yellow")
+    elif state == "EXPLORING":
+        label.append(" 🔍", style="bold yellow")
+        label.append(" ")
+        label.append(render_sparkline(completion_ratio))
+    elif state == "FINISHED":
+        label.append(" ✅", style="green")
+    else:
+        label.append(" ❓", style="dim")
 
     label.append(" - ", style="dim")
 
@@ -75,10 +72,9 @@ def render_summary_tree(summary: dict[str, Any], total_size: int = 0) -> Tree:
     confirmed = summary.get("confirmed_size", summary["size"])
     estimated = summary.get("estimated_size", summary["size"])
 
-    if state != "VERIFIED" and confirmed < estimated:
+    if state != "FINISHED" and confirmed < estimated:
         label.append(format_size(confirmed), style="green")
-        label.append("/", style="dim")
-        label.append(format_size(estimated), style="dim green")
+        label.append(f" (~{format_size(estimated)})", style="dim green")
     else:
         label.append(format_size(confirmed), style="green")
 
