@@ -95,7 +95,14 @@ def _do_scan(
                         live.update(tree)
                         last_update_time = current_time
         except KeyboardInterrupt:
-            console.print("[bold red]Scanning halted before finishing...\n")
+            if not root_node:
+                # Minimum progress (basic initialization / 1st iteration) not achieved.
+                # Re-raise to exit the program entirely.
+                raise
+            console.print("\n[bold yellow]Scan interrupted. Proceeding to cleanup...[/]\n")
+
+        if root_node:
+            root_node.calculate_metadata()
 
         return root_node
 
