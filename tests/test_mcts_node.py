@@ -1,9 +1,10 @@
-import pytest
 from pathlib import Path
+
 from fsgc.scanner import DirectoryNode
 
+
 def test_directory_node_mcts_fields():
-    node = DirectoryNode(path=Path("/tmp"))
+    node = DirectoryNode(path=Path("mock_dir"))
     assert hasattr(node, "visits")
     assert node.visits == 0
     assert hasattr(node, "total_reward")

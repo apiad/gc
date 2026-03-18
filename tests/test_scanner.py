@@ -3,8 +3,6 @@ import os
 import time
 from pathlib import Path
 
-import pytest
-
 from fsgc.scanner import DirectoryNode, Scanner
 
 
