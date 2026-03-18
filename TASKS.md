@@ -16,7 +16,7 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
-- [ ] Implement content-based sentinel verification for refined signature matching. (See plan: plans/implement-sentinel-verification.md)
+- [/] Implement content-based sentinel verification for refined signature matching (@apiad). (See plan: plans/implement-sentinel-verification.md)
 - [ ] Refine garbage collection signatures for OS, applications, and build systems. (See research/garbage-collection-signatures/)
 
 ---

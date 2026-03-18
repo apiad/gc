@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -14,6 +14,7 @@ class Signature:
     pattern: str
     priority: float
     min_age_days: int = 0
+    sentinels: list[str] = field(default_factory=list)
 
 
 class SignatureManager:
@@ -50,5 +51,6 @@ class SignatureManager:
                     pattern=s["pattern"],
                     priority=float(s["priority"]),
                     min_age_days=int(s.get("min_age_days", 0)),
+                    sentinels=s.get("sentinels", []),
                 )
             )
