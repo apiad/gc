@@ -45,9 +45,7 @@ def summarize_tree(
         percentage = child.size / node.size if node.size > 0 else 0
 
         should_keep = (
-            keep_count < max_children
-            and percentage >= min_percent
-            and child.size >= min_size
+            keep_count < max_children and percentage >= min_percent and child.size >= min_size
         )
 
         if should_keep:

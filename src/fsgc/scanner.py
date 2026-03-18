@@ -1,9 +1,6 @@
 import asyncio
 import logging
-import math
 import os
-import random
-import time
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -152,6 +149,7 @@ class DirectoryNode:
 
         return self._metadata
 
+
 class Scanner:
     """
     A stochastic scanner that uses a priority queue and async workers
@@ -220,7 +218,7 @@ class Scanner:
 
         return best_child or list(node.children.values())[0]
 
-    async def mcts_iteration(self, root: DirectoryNode, signatures: list[Any]) -> None:
+    async def mcts_iteration(self, root: DirectoryNode) -> None:
         """
         Perform one MCTS iteration: a complete playout from root to leaf.
         """
@@ -250,9 +248,7 @@ class Scanner:
             current = next_node
             path.append(current)
 
-    async def scan(
-        self, signatures: list[Any], num_iterations: int = 1000000
-    ) -> AsyncGenerator[DirectoryNode, None]:
+    async def scan(self) -> AsyncGenerator[DirectoryNode, None]:
         """
         Perform an informed MCTS scan of the filesystem and yield tree snapshots.
         """
@@ -267,7 +263,7 @@ class Scanner:
         iteration = 0
 
         while not root_node.is_fully_explored:
-            await self.mcts_iteration(root_node, signatures)
+            await self.mcts_iteration(root_node)
 
             # Yield snapshot frequently
             if iteration % 100 == 0:
@@ -295,11 +291,8 @@ class Scanner:
                     node.big_fish = trail.big_fish
                     node.estimated_size = trail.total_size
                     # Check for quick verification
-                    dir_stat = os.stat(node.path)
-                    entries_count = len(os.listdir(node.path))
-                    current_hash = GCTrail.calculate_structural_hash(
-                        dir_stat.st_mtime, entries_count
-                    )
+                    os.stat(node.path)
+                    len(os.listdir(node.path))
                 except Exception as e:
                     logger.debug(f"Failed to load trail at {trail_path}: {e}")
 

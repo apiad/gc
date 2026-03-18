@@ -76,7 +76,7 @@ def scan(
     """
     path = path.resolve()
     console.print(f"[bold blue]Scanning[/] {path}...")
-    console.print(f"[dim blue]Press Ctrl+C to break scanning at any time...\n")
+    console.print("[dim blue]Press Ctrl+C to break scanning at any time...\n")
 
     # Phase 0: Initialize Engine and Signatures
     config_path = Path("config/signatures.yaml")
@@ -91,7 +91,7 @@ def scan(
 
         try:
             with Live(console=console, refresh_per_second=10) as live:
-                async for snapshot in scanner.scan(signatures=sig_manager.signatures):
+                async for snapshot in scanner.scan():
                     root_node = snapshot
                     # Phase 2: Hierarchy Summary (Traditional Scan view)
                     summary = summarize_tree(
@@ -104,7 +104,7 @@ def scan(
                     tree = render_summary_tree(summary)
                     live.update(tree)
         except KeyboardInterrupt:
-            console.print(f"[bold red]Scanning halted before finishing...\n")
+            console.print("[bold red]Scanning halted before finishing...\n")
 
         return root_node
 
@@ -143,7 +143,9 @@ def scan(
 
 
 @app.command()
-def trail(path: Annotated[Path, typer.Argument(help="Path to the .gctrail file.")] = Path(".gctrail")) -> None:
+def trail(
+    path: Annotated[Path, typer.Argument(help="Path to the .gctrail file.")] = Path(".gctrail"),
+) -> None:
     """
     Debug command to dump the contents of a .gctrail binary file.
     """
