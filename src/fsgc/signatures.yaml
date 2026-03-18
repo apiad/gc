@@ -7,6 +7,8 @@ signatures:
     pattern: "**/.venv"
     priority: 0.9
     min_age_days: 7
+    sentinels:
+      - "pyvenv.cfg"
   - name: "Python Tests Cache"
     pattern: "**/.pytest_cache"
     priority: 0.8
@@ -25,6 +27,9 @@ signatures:
     pattern: "**/node_modules"
     priority: 0.8
     min_age_days: 7
+    sentinels:
+      - "package.json"
+      - "node_modules"
   - name: "npm Cache"
     pattern: "**/.npm"
     priority: 0.6
@@ -37,6 +42,9 @@ signatures:
     pattern: "**/target"
     priority: 0.8
     min_age_days: 2
+    sentinels:
+      - "CACHEDIR.TAG"
+      - ".rustc_info.json"
 
   # C# / .NET
   - name: "C# Build Artifacts (bin)"
@@ -50,6 +58,11 @@ signatures:
   - name: "Build Artifacts"
     pattern: "**/build"
     priority: 0.6
+    sentinels:
+      - "*.o"
+      - "*.obj"
+      - "*.a"
+      - "*.lib"
   - name: "Distribution Artifacts"
     pattern: "**/dist"
     priority: 0.6
