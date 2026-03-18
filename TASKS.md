@@ -16,12 +16,13 @@ Put done tasks into the Archive.
 
 ## Active Tasks
 
-- [/] Implement "Low-Hanging Fruit" performance optimizations (Thread pool scaling, I/O efficiency, and UI throttling). (@apiad) (See plan: plans/performance-low-hanging-fruits.md)
+- [ ] Port MCTS scanner engine to Rust subprocess. (@apiad) (See plan: plans/port-mcts-to-rust.md)
 
 ---
 
 ## Archive
 
+- [x] Implement "Low-Hanging Fruit" performance optimizations (Thread pool scaling, I/O efficiency, and UI throttling). (2026-03-18) (@apiad) (See plan: plans/performance-low-hanging-fruits.md)
 - [x] Implement CI/CD workflow for automated testing and PyPI publication (via `uv publish`). (2026-03-18)
 - [x] Create comprehensive project documentation in `docs/` (Overview, Deployment, Design, Development). (2026-03-18) (@apiad) (See plan: plans/documentation.md)
 - [x] Implement incremental metadata propagation for wide-tree performance. (2026-03-18) (@apiad) (See plan: plans/fix-scanner-performance.md)
